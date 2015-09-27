@@ -1,13 +1,7 @@
-﻿using Microsoft.Win32;
-using Patagames.Pdf;
-using Patagames.Pdf.Enums;
-using Patagames.Pdf.Net;
-using Patagames.Pdf.Net.Controls.Wpf;
+﻿using Patagames.Pdf.Enums;
 using Patagames.Pdf.Net.EventArguments;
-using Patagames.Pdf.Net.Exceptions;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
@@ -16,7 +10,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 
-namespace Pdf.Wpf
+namespace Patagames.Pdf.Net.Controls.Wpf
 {
 	/// <summary>
 	/// Interaction logic for PdfViewer.xaml
