@@ -13,8 +13,8 @@ using System.Windows.Media;
 namespace Patagames.Pdf.Net.Controls.Wpf
 {
 	/// <summary>
-	/// Interaction logic for PdfViewer.xaml
-	/// </summary>
+	/// Represents a pdf view control for displaying an Pdf document.
+	/// </summary>	
 	public partial class PdfViewer : UserControl, IScrollInfo
 	{
 		#region Private fields
