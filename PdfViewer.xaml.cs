@@ -1,5 +1,6 @@
 ﻿using Patagames.Pdf.Enums;
 using Patagames.Pdf.Net.EventArguments;
+using Patagames.Pdf.Net.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -2199,8 +2200,11 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			try
 			{
 				Document.Pages.CurrentPageChanged -= Pages_CurrentPageChanged;
-				Document.Pages.CurrentIndex = index;
-				OnCurrentPageChanged(EventArgs.Empty);
+				if (Document.Pages.CurrentIndex != index)
+				{
+					Document.Pages.CurrentIndex = index;
+					OnCurrentPageChanged(EventArgs.Empty);
+				}
 			}
 			finally
 			{
