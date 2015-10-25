@@ -905,28 +905,28 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			if (Document == null)
 				return;
 
-			if (startPage < 0)
-				startPage = 0;
 			if (startPage > Document.Pages.Count - 1)
 				startPage = Document.Pages.Count - 1;
+			if (startPage < 0)
+				startPage = 0;
 
-			if (endPage < 0)
-				endPage = 0;
 			if (endPage > Document.Pages.Count - 1)
 				endPage = Document.Pages.Count - 1;
+			if (endPage < 0)
+				endPage = 0;
 
 			int startCnt = Document.Pages[startPage].Text.CountChars;
 			int endCnt = Document.Pages[endPage].Text.CountChars;
 
-			if (startIndex < 0)
-				startIndex = 0;
 			if (startIndex > startCnt - 1)
 				startIndex = startCnt - 1;
+			if (startIndex < 0)
+				startIndex = 0;
 
-			if (endIndex < 0)
-				endIndex = 0;
 			if (endIndex > endCnt - 1)
 				endIndex = endCnt - 1;
+			if (endIndex < 0)
+				endIndex = 0;
 
 			_selectInfo = new SelectInfo()
 			{
@@ -1087,6 +1087,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <summary>
 		/// Removes highlight from the text
 		/// </summary>
+		public void RemoveHighlightFromText()
+		{
+			_highlightedText.Clear();
+			InvalidateVisual();
+		}
+
+		/// <summary>
+		/// Removes highlight from the text
+		/// </summary>
 		/// <param name="pageIndex">Zero-based index of the page</param>
 		/// <param name="charIndex">Zero-based char index on the page.</param>
 		/// <param name="charsCount">The number of highlighted characters on the page or -1 for highlight text from charIndex to end of the page.</param>
@@ -1131,6 +1140,19 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			if (w > 0 && h > 0)
 				MeasureOverride(new Size(w, h));
 			InvalidateVisual();
+		}
+
+		/// <summary>
+		/// Calculates the actual rectangle of the specified page in client coordinates
+		/// </summary>
+		/// <param name="index">Zero-based page index</param>
+		/// <returns>Calculated rectangle</returns>
+		public Rect CalcActualRect(int index)
+		{
+			var rect = renderRects(index);
+			rect.X += _autoScrollPosition.X;
+			rect.Y += _autoScrollPosition.Y;
+			return rect;
 		}
 		#endregion
 
@@ -1218,9 +1240,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			if (_document != null)
 			{
 				_document.Dispose();
+				_document = null;
 				OnDocumentClosed(EventArgs.Empty);
 			}
 			_document = null;
+			_onstartPageIndex = 0;
+			if (ScrollOwner != null)
+				ScrollOwner.InvalidateScrollInfo();
+			InvalidateVisual();
 
 		}
 		#endregion
@@ -1905,13 +1932,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 		}
 
-		private Rect CalcActualRect(int index)
-		{
-			var rect = renderRects(index);
-			rect.X += _autoScrollPosition.X;
-			rect.Y += _autoScrollPosition.Y;
-			return rect;
-		}
 
 		private Rect GetRenderRect(int index)
 		{
