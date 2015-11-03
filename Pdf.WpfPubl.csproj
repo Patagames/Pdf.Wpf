@@ -47,6 +47,7 @@
     <Compile Include="DispatcherISyncInvoke.cs" />
     <Compile Include="Helpers.cs" />
     <Compile Include="HighlightInfo.cs" />
+    <Compile Include="MouseModes.cs" />
     <Compile Include="PdfViewer.xaml.cs">
       <DependentUpon>PdfViewer.xaml</DependentUpon>
     </Compile>

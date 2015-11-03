@@ -24,6 +24,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		private bool _mousePressed = false;
 		private bool _mousePressedInLink = false;
 		private int _onstartPageIndex = 0;
+		private Point _panToolInitialScrollPosition;
+		private Point _panToolInitialMousePosition;
 
 		private PdfForms _fillForms;
 		private List<Rect> _selectedRectangles = new List<Rect>();
@@ -50,6 +52,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		private HorizontalAlignment _pageHAlign;
 		private RenderFlags _renderFlags;
 		private int _tilesCount;
+		private MouseModes _mouseMode;
 
 
 		private Rect[] _renderRects;
@@ -173,6 +176,11 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// Occurs when the text highlighting changed
 		/// </summary>
 		public event EventHandler HighlightedTextChanged;
+
+		/// <summary>
+		/// Occurs when the value of the <see cref="MouseModes"/> property has changed.
+		/// </summary>
+		public event EventHandler MouseModeChanged;
 
 		#endregion
 
@@ -396,7 +404,16 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			if (HighlightedTextChanged != null)
 				HighlightedTextChanged(this, e);
 		}
-
+		
+		/// <summary>
+		/// Raises the <see cref="MouseModeChanged"/> event.
+		/// </summary>
+		/// <param name="e">An System.EventArgs that contains the event data.</param>
+		protected virtual void OnMouseModeChanged(EventArgs e)
+		{
+			if (MouseModeChanged != null)
+				MouseModeChanged(this, e);
+		}
 		#endregion
 
 		#region Public properties
@@ -842,6 +859,24 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </summary>
 		public SortedDictionary<int, List<HighlightInfo>> HighlightedTextInfo { get { return _highlightedText; } }
 
+		/// <summary>
+		/// Gets or sets mouse mode for PdfViewer control
+		/// </summary>
+		public MouseModes MouseMode
+		{
+			get
+			{
+				return _mouseMode;
+			}
+			set
+			{
+				if (_mouseMode != value)
+				{
+					_mouseMode = value;
+					OnMouseModeChanged(EventArgs.Empty);
+				}
+			}
+		}
 		#endregion
 
 		#region Public methods
@@ -1239,6 +1274,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			if (_document != null)
 			{
+				DeselectText();
 				_document.Dispose();
 				_document = null;
 				OnDocumentClosed(EventArgs.Empty);
@@ -1418,21 +1454,12 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					int idx = DeviceToPage(loc.X, loc.Y, out page_point);
 					if (idx >= 0)
 					{
-						var page = Document.Pages[idx];
-						int si, ei;
-						int ci = page.Text.GetCharIndexAtPos((float)page_point.X, (float)page_point.Y, 10.0f, 10.0f);
-						if (GetWord(page.Text, ci, out si, out ei))
+						switch (MouseMode)
 						{
-							_selectInfo = new SelectInfo()
-							{
-								StartPage = idx,
-								EndPage = idx,
-								StartIndex = si,
-								EndIndex = ei
-							};
-							if (_selectInfo.StartPage >= 0)
-								OnSelectionChanged(EventArgs.Empty);
-							InvalidateVisual();
+							case MouseModes.Default:
+							case MouseModes.SelectTextTool:
+								ProcessMouseDoubleClickForSelectTextTool(page_point, idx);
+								break;
 						}
 					}
 				}
@@ -1460,23 +1487,22 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 						Document.Pages[idx].OnLButtonDown(0, (float)page_point.X, (float)page_point.Y);
 						SetCurrentPage(idx);
 
-						var pdfLink = Document.Pages[idx].Links.GetLinkAtPoint((float)page_point.X, (float)page_point.Y);
-						var webLink = Document.Pages[idx].Text.WebLinks.GetWebLinkAtPoint((float)page_point.X, (float)page_point.Y);
-						if (webLink != null || pdfLink != null)
-							_mousePressedInLink = true;
-						else
-							_mousePressedInLink = false;
-
-						if (_selectInfo.StartPage >= 0)
-							OnSelectionChanged(EventArgs.Empty);
 						_mousePressed = true;
-						_selectInfo = new SelectInfo()
+
+						switch (MouseMode)
 						{
-							StartPage = idx,
-							EndPage = idx,
-							StartIndex = Document.Pages[idx].Text.GetCharIndexAtPos((float)page_point.X, (float)page_point.Y, 10.0f, 10.0f),
-							EndIndex = Document.Pages[idx].Text.GetCharIndexAtPos((float)page_point.X, (float)page_point.Y, 10.0f, 10.0f)
-						};
+							case MouseModes.Default:
+								ProcessMouseDownDefaultTool(page_point, idx);
+								ProcessMouseDownForSelectTextTool(page_point, idx);
+								break;
+							case MouseModes.SelectTextTool:
+								ProcessMouseDownForSelectTextTool(page_point, idx);
+								break;
+							case MouseModes.PanTool:
+								ProcessMouseDownPanTool(loc);
+								break;
+
+						}
 						InvalidateVisual();
 					}
 				}
@@ -1503,33 +1529,25 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 					if (!Document.Pages[idx].OnMouseMove(0, (float)page_point.X, (float)page_point.Y))
 					{
-						if (ei >= 0)
+						if (ei >= 0 && (MouseMode == MouseModes.SelectTextTool || MouseMode == MouseModes.Default))
 							Mouse.OverrideCursor = Cursors.IBeam;
 						else
 							Mouse.OverrideCursor = null;
 					}
 
-
-					var pdfLink = Document.Pages[idx].Links.GetLinkAtPoint((float)page_point.X, (float)page_point.Y);
-					var webLink = Document.Pages[idx].Text.WebLinks.GetWebLinkAtPoint((float)page_point.X, (float)page_point.Y);
-					if (webLink != null || pdfLink != null)
-						Mouse.OverrideCursor = Cursors.Hand;
-
-					if (_mousePressed)
+					switch (MouseMode)
 					{
-						if (ei >= 0)
-						{
-							_selectInfo = new SelectInfo()
-							{
-								StartPage = _selectInfo.StartPage,
-								EndPage = idx,
-								EndIndex = ei,
-								StartIndex = _selectInfo.StartIndex
-							};
-						}
-						InvalidateVisual();
+						case MouseModes.Default:
+							ProcessMouseMoveForDefaultTool(page_point, idx);
+							ProcessMouseMoveForSelectTextTool(idx, ei);
+							break;
+						case MouseModes.SelectTextTool:
+							ProcessMouseMoveForSelectTextTool(idx, ei);
+							break;
+						case MouseModes.PanTool:
+							ProcessMouseMoveForPanTool(loc);
+							break;
 					}
-
 				}
 			}
 
@@ -1561,12 +1579,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				{
 					Document.Pages[idx].OnLButtonUp(0, (float)page_point.X, (float)page_point.Y);
 
-					if (_mousePressedInLink)
+					switch (MouseMode)
 					{
-						var pdfLink = Document.Pages[idx].Links.GetLinkAtPoint((float)page_point.X, (float)page_point.Y);
-						var webLink = Document.Pages[idx].Text.WebLinks.GetWebLinkAtPoint((float)page_point.X, (float)page_point.Y);
-						if (webLink != null || pdfLink != null)
-							ProcessLinkClicked(pdfLink, webLink);
+						case MouseModes.Default:
+							PriocessMouseUpForDefaultTool(page_point, idx);
+							break;
+						case MouseModes.PanTool:
+							ProcessMouseUpPanTool(loc);
+							break;
 					}
 				}
 			}
@@ -2786,6 +2806,118 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 		#endregion
 
+		#endregion
+
+
+		#region Select tool
+		private void ProcessMouseDoubleClickForSelectTextTool(Point page_point, int page_index)
+		{
+			var page = Document.Pages[page_index];
+			int si, ei;
+			int ci = page.Text.GetCharIndexAtPos((float)page_point.X, (float)page_point.Y, 10.0f, 10.0f);
+			if (GetWord(page.Text, ci, out si, out ei))
+			{
+				_selectInfo = new SelectInfo()
+				{
+					StartPage = page_index,
+					EndPage = page_index,
+					StartIndex = si,
+					EndIndex = ei
+				};
+				if (_selectInfo.StartPage >= 0)
+					OnSelectionChanged(EventArgs.Empty);
+				InvalidateVisual();
+			}
+		}
+
+		private void ProcessMouseDownForSelectTextTool(Point page_point, int page_index)
+		{
+			_selectInfo = new SelectInfo()
+			{
+				StartPage = page_index,
+				EndPage = page_index,
+                StartIndex = Document.Pages[page_index].Text.GetCharIndexAtPos((float)page_point.X, (float)page_point.Y, 10.0f, 10.0f),
+				EndIndex = Document.Pages[page_index].Text.GetCharIndexAtPos((float)page_point.X, (float)page_point.Y, 10.0f, 10.0f)
+			};
+			if (_selectInfo.StartPage >= 0)
+				OnSelectionChanged(EventArgs.Empty);
+		}
+
+		private void ProcessMouseMoveForSelectTextTool(int page_index, int character_index)
+		{
+			if (_mousePressed)
+			{
+				if (character_index >= 0)
+				{
+					_selectInfo = new SelectInfo()
+					{
+						StartPage = _selectInfo.StartPage,
+						EndPage = page_index,
+						EndIndex = character_index,
+						StartIndex = _selectInfo.StartIndex
+					};
+				}
+				InvalidateVisual();
+			}
+		}
+		#endregion
+
+		#region Default tool
+		private void ProcessMouseDownDefaultTool(Point page_point, int page_index)
+		{
+			var pdfLink = Document.Pages[page_index].Links.GetLinkAtPoint((float)page_point.X, (float)page_point.Y);
+			var webLink = Document.Pages[page_index].Text.WebLinks.GetWebLinkAtPoint((float)page_point.X, (float)page_point.Y);
+			if (webLink != null || pdfLink != null)
+				_mousePressedInLink = true;
+			else
+				_mousePressedInLink = false;
+		}
+
+		private void ProcessMouseMoveForDefaultTool(Point page_point, int page_index)
+		{
+			var pdfLink = Document.Pages[page_index].Links.GetLinkAtPoint((float)page_point.X, (float)page_point.Y);
+			var webLink = Document.Pages[page_index].Text.WebLinks.GetWebLinkAtPoint((float)page_point.X, (float)page_point.Y);
+			if (webLink != null || pdfLink != null)
+				Mouse.OverrideCursor = Cursors.Hand;
+
+		}
+
+		private void PriocessMouseUpForDefaultTool(Point page_point, int page_index)
+		{
+			if (_mousePressedInLink)
+			{
+				var pdfLink = Document.Pages[page_index].Links.GetLinkAtPoint((float)page_point.X, (float)page_point.Y);
+				var webLink = Document.Pages[page_index].Text.WebLinks.GetWebLinkAtPoint((float)page_point.X, (float)page_point.Y);
+				if (webLink != null || pdfLink != null)
+					ProcessLinkClicked(pdfLink, webLink);
+			}
+		}
+		#endregion
+
+		#region Pan tool
+		private void ProcessMouseDownPanTool(Point mouse_point)
+		{
+			_panToolInitialScrollPosition = _autoScrollPosition;
+			_panToolInitialMousePosition = mouse_point;
+			CaptureMouse();
+		}
+
+		private void ProcessMouseMoveForPanTool(Point mouse_point)
+		{
+			if (!_mousePressed)
+				return;
+			var yOffs = mouse_point.Y - _panToolInitialMousePosition.Y;
+			var xOffs = mouse_point.X - _panToolInitialMousePosition.X;
+			//_autoScrollPosition = new Point(-_panToolInitialScrollPosition.X - xOffs, -_panToolInitialScrollPosition.Y - yOffs);
+			SetVerticalOffset(-_panToolInitialScrollPosition.Y - yOffs);
+			SetHorizontalOffset(-_panToolInitialScrollPosition.X - xOffs);
+			//Scrol
+		}
+
+		private void ProcessMouseUpPanTool(Point mouse_point)
+		{
+			ReleaseMouseCapture();
+		}
 		#endregion
 	}
 }
