@@ -57,7 +57,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 		private Rect[] _renderRects;
 		private int _startPage { get { return ViewMode == ViewModes.SinglePage ? Document.Pages.CurrentIndex : 0; } }
-		private int _endPage { get { return ViewMode == ViewModes.SinglePage ? Document.Pages.CurrentIndex : _renderRects.Length - 1; } }
+		private int _endPage { get { return ViewMode == ViewModes.SinglePage ? Document.Pages.CurrentIndex : (_renderRects != null ? _renderRects.Length - 1 : -1); } }
 
 		private Size _extent = new Size(0, 0);
 		private Size _viewport = new Size(0, 0);
@@ -438,6 +438,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					throw new ArgumentException(Patagames.Pdf.Net.Controls.Wpf.Properties.Resources.err0001, "AllowSetDocument");
 				if (_document != value)
 				{
+					Pdfium.FPDF_ShowSplash(true);
 					CloseDocument();
 					_document = value;
 					UpdateDocLayout();
@@ -655,7 +656,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				{
 					_viewMode = value;
 					UpdateDocLayout();
-					MakeVisible(null, _renderRects[CurrentIndex]);
+					if(_renderRects!= null)
+						MakeVisible(null, _renderRects[CurrentIndex]);
 					OnViewModeChanged(EventArgs.Empty);
 				}
 			}
@@ -1203,18 +1205,30 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <exception cref="InvalidPasswordException">password required or incorrect password</exception>
 		/// <exception cref="UnsupportedSecuritySchemeException">unsupported security scheme</exception>
 		/// <exception cref="PdfiumException">Error occured in PDFium. See ErrorCode for detail</exception>
+		/// <exception cref="Exceptions.NoLicenseException">This exception thrown only in trial mode if document cannot be opened due to a license restrictions"</exception>
+		/// <remarks>
+		/// <note type="note">
+		/// With the trial version you can load documents which size is smaller than 1024 Kb, or greater than 10 Mb only.
+		/// </note> 
+		/// </remarks>
 		public void LoadDocument(string path, string password = null)
 		{
-			CloseDocument();
-			_document = PdfDocument.Load(path, _fillForms, password);
-			UpdateDocLayout();
-			_document.Pages.CurrentPageChanged += Pages_CurrentPageChanged;
-			_document.Pages.PageInserted += Pages_PageInserted;
-			_document.Pages.PageDeleted += Pages_PageDeleted;
-			SetCurrentPage(_onstartPageIndex);
-			ScrollToPage(_onstartPageIndex);
-			OnDocumentLoaded(EventArgs.Empty);
-
+			try {
+				Pdfium.FPDF_ShowSplash(true);
+				CloseDocument();
+				_document = PdfDocument.Load(path, _fillForms, password);
+				UpdateDocLayout();
+				_document.Pages.CurrentPageChanged += Pages_CurrentPageChanged;
+				_document.Pages.PageInserted += Pages_PageInserted;
+				_document.Pages.PageDeleted += Pages_PageDeleted;
+				SetCurrentPage(_onstartPageIndex);
+				ScrollToPage(_onstartPageIndex);
+				OnDocumentLoaded(EventArgs.Empty);
+			}
+			catch (NoLicenseException ex)
+			{
+				MessageBox.Show(ex.Message, Properties.Resources.InfoHeader, MessageBoxButton.OK, MessageBoxImage.Information);
+			}
 		}
 
 		/// <summary>
@@ -1228,18 +1242,31 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <exception cref="InvalidPasswordException">password required or incorrect password</exception>
 		/// <exception cref="UnsupportedSecuritySchemeException">unsupported security scheme</exception>
 		/// <exception cref="PdfiumException">Error occured in PDFium. See ErrorCode for detail</exception>
-		/// <remarks><note type="note">The application should maintain the stream resources being valid until the PDF document close.</note></remarks>
+		/// <exception cref="Exceptions.NoLicenseException">This exception thrown only in trial mode if document cannot be opened due to a license restrictions"</exception>
+		/// <remarks>
+		/// <note type="note">
+		/// <para>The application should maintain the stream resources being valid until the PDF document close.</para>
+		/// <para>With the trial version you can load documents which size is smaller than 1024 Kb, or greater than 10 Mb only.</para>
+		/// </note> 
+		/// </remarks>
 		public void LoadDocument(Stream stream, string password = null)
 		{
-			CloseDocument();
-			_document = PdfDocument.Load(stream, _fillForms, password);
-			UpdateDocLayout();
-			_document.Pages.CurrentPageChanged += Pages_CurrentPageChanged;
-			_document.Pages.PageInserted += Pages_PageInserted;
-			_document.Pages.PageDeleted += Pages_PageDeleted;
-			SetCurrentPage(_onstartPageIndex);
-			ScrollToPage(_onstartPageIndex);
-			OnDocumentLoaded(EventArgs.Empty);
+			try {
+				Pdfium.FPDF_ShowSplash(true);
+				CloseDocument();
+				_document = PdfDocument.Load(stream, _fillForms, password);
+				UpdateDocLayout();
+				_document.Pages.CurrentPageChanged += Pages_CurrentPageChanged;
+				_document.Pages.PageInserted += Pages_PageInserted;
+				_document.Pages.PageDeleted += Pages_PageDeleted;
+				SetCurrentPage(_onstartPageIndex);
+				ScrollToPage(_onstartPageIndex);
+				OnDocumentLoaded(EventArgs.Empty);
+			}
+			catch (NoLicenseException ex)
+			{
+				MessageBox.Show(ex.Message, Properties.Resources.InfoHeader, MessageBoxButton.OK, MessageBoxImage.Information);
+			}
 		}
 
 		/// <summary>
@@ -1253,18 +1280,31 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <exception cref="InvalidPasswordException">password required or incorrect password</exception>
 		/// <exception cref="UnsupportedSecuritySchemeException">unsupported security scheme</exception>
 		/// <exception cref="PdfiumException">Error occured in PDFium. See ErrorCode for detail</exception>
-		/// <remarks><note type="note">The application should not modify the byte array resources being valid until the PDF document close.</note></remarks>
+		/// <exception cref="Exceptions.NoLicenseException">This exception thrown only in trial mode if document cannot be opened due to a license restrictions"</exception>
+		/// <remarks>
+		/// <note type="note">
+		/// <para>The application should maintain the byte array being valid until the PDF document close.</para>
+		/// <para>With the trial version you can load documents which size is smaller than 1024 Kb, or greater than 10 Mb only.</para>
+		/// </note> 
+		/// </remarks>
 		public void LoadDocument(byte[] pdf, string password = null)
 		{
-			CloseDocument();
-			_document = PdfDocument.Load(pdf, _fillForms, password);
-			UpdateDocLayout();
-			_document.Pages.CurrentPageChanged += Pages_CurrentPageChanged;
-			_document.Pages.PageInserted += Pages_PageInserted;
-			_document.Pages.PageDeleted += Pages_PageDeleted;
-			SetCurrentPage(_onstartPageIndex);
-			ScrollToPage(_onstartPageIndex);
-			OnDocumentLoaded(EventArgs.Empty);
+			try {
+				Pdfium.FPDF_ShowSplash(true);
+				CloseDocument();
+				_document = PdfDocument.Load(pdf, _fillForms, password);
+				UpdateDocLayout();
+				_document.Pages.CurrentPageChanged += Pages_CurrentPageChanged;
+				_document.Pages.PageInserted += Pages_PageInserted;
+				_document.Pages.PageDeleted += Pages_PageDeleted;
+				SetCurrentPage(_onstartPageIndex);
+				ScrollToPage(_onstartPageIndex);
+				OnDocumentLoaded(EventArgs.Empty);
+			}
+			catch (NoLicenseException ex)
+			{
+				MessageBox.Show(ex.Message, Properties.Resources.InfoHeader, MessageBoxButton.OK, MessageBoxImage.Information);
+			}
 		}
 
 		/// <summary>
@@ -1279,6 +1319,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				_document = null;
 				OnDocumentClosed(EventArgs.Empty);
 			}
+			_renderRects = null;
 			_document = null;
 			_onstartPageIndex = 0;
 			if (ScrollOwner != null)

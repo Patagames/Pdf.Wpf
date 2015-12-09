@@ -123,4 +123,7 @@
   <data name="err0002" xml:space="preserve">
     <value>The page index is out of range.</value>
   </data>
+  <data name="InfoHeader" xml:space="preserve">
+    <value>Information</value>
+  </data>
 </root>
