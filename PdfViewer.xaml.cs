@@ -2164,7 +2164,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			double width = 0;
 			for (int i = 0; i < _renderRects.Length; i++)
 			{
-				var page = Document.Pages[i];
 				var rrect = GetRenderRect(i);
 				_renderRects[i] = Helpers.CreateRect(
 					rrect.X + PageMargin.Left,
@@ -2191,7 +2190,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				{
 					if (j >= _renderRects.Length)
 						break;
-					var page = Document.Pages[j];
 					var rrect = GetRenderRect(j);
 					rrect.Width = rrect.Width / TilesCount;
 					rrect.Height = rrect.Height / TilesCount;
@@ -2225,7 +2223,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				{
 					if (j >= _renderRects.Length)
 						break;
-					var page = Document.Pages[j];
 					var rrect = GetRenderRect(j);
 
 					_renderRects[j] = Helpers.CreateRect(
@@ -2251,7 +2248,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			double x = 0;
 			for (int i = 0; i < _renderRects.Length; i++)
 			{
-				var page = Document.Pages[i];
 				var rrect = GetRenderRect(i);
 				_renderRects[i] = Helpers.CreateRect(
 					x + PageMargin.Left,
@@ -2271,7 +2267,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			Size ret = Helpers.CreateSize(0, 0);
 			for (int i = 0; i < _renderRects.Length; i++)
 			{
-				var page = Document.Pages[i];
 				var rrect = GetRenderRect(i);
 				_renderRects[i] = Helpers.CreateRect(
 					rrect.X + PageMargin.Left,
