@@ -1461,7 +1461,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					//Actual coordinates of the page with the scroll
 					Rect actualRect = CalcActualRect(i);
 					if (!actualRect.IntersectsWith(ClientRect))
+					{
+						Document.Pages[i].Dispose();
 						continue; //Page is invisible. Skip it
+					}
 
 					//Draw page
 					DrawPage(drawingContext, Document.Pages[i], actualRect);
