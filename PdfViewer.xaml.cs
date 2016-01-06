@@ -1644,10 +1644,12 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		}
 
 		/// <summary>
-		/// Raises the System.Windows.Forms.Control.KeyDown event.
+		/// Invoked when an unhandled System.Windows.Input.Keyboard.PreviewKeyDown attached
+		/// event reaches an element in its route that is derived from this class. Implement
+		///  this method to add class handling for this event.
 		/// </summary>
-		/// <param name="e">A System.Windows.Forms.KeyEventArgs that contains the event data.</param>
-		protected override void OnKeyDown(KeyEventArgs e)
+		/// <param name="e">The System.Windows.Input.KeyEventArgs that contains the event data.</param>
+		protected override void OnPreviewKeyDown(KeyEventArgs e)
 		{
 			if (Document != null)
 			{
@@ -1662,9 +1664,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				if (Keyboard.IsKeyDown(Key.LeftAlt) || Keyboard.IsKeyDown(Key.RightAlt))
 					mod |= KeyboardModifiers.AltKey;
 
-				Document.Pages.CurrentPage.OnKeyDown(formsKey, mod);
+				if(Document.Pages.CurrentPage.OnKeyDown(formsKey, mod))
+					e.Handled = true;
 			}
-			base.OnKeyDown(e);
+			base.OnPreviewKeyDown(e);
 		}
 
 		/// <summary>
