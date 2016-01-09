@@ -453,7 +453,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 						_document.Pages.PageInserted += Pages_PageInserted;
 						_document.Pages.PageDeleted += Pages_PageDeleted;
 						SetCurrentPage(_onstartPageIndex);
-						ScrollToPage(_onstartPageIndex);
+						if (_document.Pages.Count > 0)
+							ScrollToPage(_onstartPageIndex);
 						OnDocumentLoaded(EventArgs.Empty);
 					}
 				}
