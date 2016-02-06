@@ -1,4 +1,6 @@
-﻿using System.Windows;
+﻿using System.Diagnostics;
+using System.Reflection;
+using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -6,8 +8,34 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 {
 	class Helpers
 	{
-		#region Colors, pens, brushes, Rects and Sizes
-		private static Color _emptyColor = Color.FromArgb(0, 0, 0, 0);
+        static Helpers()
+        {
+            // This will require restart the app if DPI is changed
+            // but it is too much overhead to check it on each conversion
+            var flags = BindingFlags.NonPublic | BindingFlags.Static;
+            var dpiProperty = typeof(SystemParameters).GetProperty("Dpi", flags);
+
+            Dpi = (int)dpiProperty.GetValue(null, null);
+        }
+
+        #region DPIhandling
+
+        internal static int Dpi { get; private set; }
+
+        internal static int PointsToPixels(double points)
+        {
+            return (int)(points * Dpi / 72.0);
+        }
+
+        internal static double PixelsToPoints(int pixels)
+        {
+            return pixels * 72.0 / Dpi;
+        }
+
+        #endregion DPIhandling
+
+        #region Colors, pens, brushes, Rects and Sizes
+        private static Color _emptyColor = Color.FromArgb(0, 0, 0, 0);
 		public static Color ColorEmpty { get { return _emptyColor; } }
 
 		internal static Pen CreatePen(Brush brush, double thick = 1.0)
@@ -61,8 +89,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		#region Render
 		internal static void DrawImageUnscaled(DrawingContext drawingContext, PdfBitmap bmp, double x, double y)
 		{
-			var isrc = BitmapSource.Create(bmp.Width, bmp.Height, 97, 97, PixelFormats.Bgra32, null, bmp.Buffer, bmp.Stride * bmp.Height, bmp.Stride);
-			drawingContext.DrawImage(isrc, new Rect(x, y, bmp.Width, bmp.Height));
+			var isrc = BitmapSource.Create(bmp.Width, bmp.Height, Dpi, Dpi, PixelFormats.Bgra32, null, bmp.Buffer, bmp.Stride * bmp.Height, bmp.Stride);
+            drawingContext.DrawImage(isrc, new Rect(x, y, PixelsToPoints(bmp.Width), PixelsToPoints(bmp.Height)));
 		}
 
 		internal static void FillRectangle(DrawingContext drawingContext, Brush brush, Rect rect)
@@ -75,6 +103,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			drawingContext.DrawRectangle(null, pen, rect);
 		}
 
-		#endregion
-	}
+        #endregion
+
+    }
 }

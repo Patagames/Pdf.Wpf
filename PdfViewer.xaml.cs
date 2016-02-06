@@ -82,6 +82,11 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		public event EventHandler DocumentLoaded;
 
 		/// <summary>
+		/// Occurs before the document unloads.
+		/// </summary>
+		public event EventHandler<DocumentClosingEventArgs> DocumentClosing;
+
+		/// <summary>
 		/// Occurs whenever the document unloads.
 		/// </summary>
 		public event EventHandler DocumentClosed;
@@ -221,6 +226,18 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 			if (DocumentLoaded != null)
 				DocumentLoaded(this, e);
+		}
+
+		/// <summary>
+		/// Raises the <see cref="DocumentClosing"/> event.
+		/// </summary>
+		/// <param name="e">An System.EventArgs that contains the event data.</param>
+		/// <returns>True if closing should be canceled, False otherwise</returns>
+		protected virtual bool OnDocumentClosing(DocumentClosingEventArgs e)
+		{
+			if (DocumentClosing != null)
+				DocumentClosing(this, e);
+			return e.Cancel;
 		}
 
 		/// <summary>
@@ -1433,6 +1450,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			if (_document != null)
 			{
+				if (OnDocumentClosing(new DocumentClosingEventArgs()))
+					return;
 				DeselectText();
 				_document.Dispose();
 				_document = null;
@@ -1868,7 +1887,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			if (actualRect.Width <= 0 || actualRect.Height <= 0)
 				return;
-			PdfBitmap bmp = _prPages.RenderPage(page, actualRect, PageRotation(page), RenderFlags);
+			int width = Helpers.PointsToPixels(actualRect.Width);
+			int height = Helpers.PointsToPixels(actualRect.Height);
+
+			PdfBitmap bmp = _prPages.RenderPage(page, width, height, PageRotation(page), RenderFlags);
 			if (bmp != null)
 			{ 
 				//Draw fill forms
@@ -1909,10 +1931,13 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			if (actualRect.Width <= 0 || actualRect.Height <= 0)
 				return;
-			using (PdfBitmap bmp = new PdfBitmap((int)actualRect.Width, (int)actualRect.Height, true))
+			int width = Helpers.PointsToPixels(actualRect.Width);
+			int height = Helpers.PointsToPixels(actualRect.Height);
+
+			using (PdfBitmap bmp = new PdfBitmap(width, height, true))
 			{
 				//Draw page content to bitmap
-				page.RenderEx(bmp, 0, 0, (int)actualRect.Width, (int)actualRect.Height, PageRotation(page), RenderFlags);
+				page.RenderEx(bmp, 0, 0, width, height, PageRotation(page), RenderFlags);
 
 				//Draw fill forms
 				DrawFillForms(bmp, page, actualRect, _invalidatePage != null && _invalidatePage == page, _invalidateRect.left, _invalidateRect.top, _invalidateRect.right, _invalidateRect.bottom);
@@ -1949,16 +1974,19 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </remarks>
 		protected virtual void DrawFillForms(PdfBitmap bmp, PdfPage page, Rect actualRect, bool isNeedDrawBg, float bgLeft, float bgTop, float bgRight, float bgBottom)
 		{
+			int width = Helpers.PointsToPixels(actualRect.Width);
+			int height = Helpers.PointsToPixels(actualRect.Height);
+
 			if (isNeedDrawBg)
 			{
 				int pt1X, pt2X, pt1Y, pt2Y;
-				page.PageToDeviceEx(0, 0, (int)actualRect.Width, (int)actualRect.Height, PageRotation(page), bgLeft, bgTop, out pt1X, out pt1Y);
-				page.PageToDeviceEx(0, 0, (int)actualRect.Width, (int)actualRect.Height, PageRotation(page), bgRight, bgBottom, out pt2X, out pt2Y);
+				page.PageToDeviceEx(0, 0, width, height, PageRotation(page), bgLeft, bgTop, out pt1X, out pt1Y);
+				page.PageToDeviceEx(0, 0, width, height, PageRotation(page), bgRight, bgBottom, out pt2X, out pt2Y);
 				bmp.FillRectEx(pt1X, pt1Y, pt2X - pt1X, pt2Y - pt1Y, Helpers.ToArgb(PageBackColor));
 			}
 
 			//Draw fillforms to bitmap
-			page.RenderForms(bmp, 0, 0, (int)actualRect.Width, (int)actualRect.Height, PageRotation(page), RenderFlags);
+			page.RenderForms(bmp, 0, 0, width, height, PageRotation(page), RenderFlags);
 		}
 
 		/// <summary>
