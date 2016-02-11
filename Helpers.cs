@@ -87,10 +87,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		#endregion
 
 		#region Render
-		internal static void DrawImageUnscaled(DrawingContext drawingContext, PdfBitmap bmp, double x, double y)
+		internal static void DrawImageUnscaled(DrawingContext drawingContext, WriteableBitmap wpfBmp, double x, double y)
 		{
-			var isrc = BitmapSource.Create(bmp.Width, bmp.Height, Dpi, Dpi, PixelFormats.Bgra32, null, bmp.Buffer, bmp.Stride * bmp.Height, bmp.Stride);
-            drawingContext.DrawImage(isrc, new Rect(x, y, PixelsToPoints(bmp.Width), PixelsToPoints(bmp.Height)));
+			drawingContext.DrawImage(wpfBmp, new Rect(x, y, PixelsToPoints(wpfBmp.PixelWidth), PixelsToPoints(wpfBmp.PixelHeight)));
 		}
 
 		internal static void FillRectangle(DrawingContext drawingContext, Brush brush, Rect rect)

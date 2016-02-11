@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Patagames.Pdf.Enums;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace Patagames.Pdf.Net.Controls.Wpf
 {
@@ -89,7 +90,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					return this[page].bmp; //Stop rendering. Return image.
 
 				case ProgressiveRenderingStatuses.RenderDone+2:
-					return this[page].bmp; //Rendering already dtoped. return image
+					return this[page].bmp; //Rendering already stoped. return image
 
 				case ProgressiveRenderingStatuses.RenderTobeContinued:
 					this[page].status = page.ContinueProgressiveRender();
@@ -133,6 +134,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				if (this[page].status == ProgressiveRenderingStatuses.RenderTobeContinued)
 					page.CancelProgressiveRender();
 				this[page].bmp.Dispose();
+				this[page].wpfBmp = null;
 				page.Disposed -= Page_Disposed;
 				this.Remove(page);
 			}

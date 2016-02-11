@@ -11,6 +11,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace Patagames.Pdf.Net.Controls.Wpf
 {
@@ -1570,6 +1571,18 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		}
 
 		/// <summary>
+		/// Invoked when an unhandled System.Windows.Input.Mouse.MouseLeave attached event
+		/// is raised on this element. Implement this method to add class handling for this
+		/// event.
+		/// </summary>
+		/// <param name="e">The System.Windows.Input.MouseEventArgs that contains the event data.</param>
+		protected override void OnMouseLeave(MouseEventArgs e)
+		{
+			Mouse.OverrideCursor = null;
+			base.OnMouseLeave(e);
+		}
+
+		/// <summary>
 		/// When overridden in a derived class, participates in rendering operations that are directed by the layout system. 
 		/// The rendering instructions for this element are not used directly when this method is invoked, and are instead 
 		/// preserved for later asynchronous use by layout and drawing.
@@ -1896,8 +1909,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				//Draw fill forms
 				DrawFillForms(bmp, page, actualRect, _invalidatePage != null && _invalidatePage == page, _invalidateRect.left, _invalidateRect.top, _invalidateRect.right, _invalidateRect.bottom);
 
+				if (_prPages[page].wpfBmp == null)
+				{
+					_prPages[page].wpfBmp = new WriteableBitmap(width, height, Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
+					int stride = bmp.Stride;
+					_prPages[page].wpfBmp.WritePixels(new Int32Rect(0, 0, _prPages[page].wpfBmp.PixelWidth, _prPages[page].wpfBmp.PixelHeight), bmp.Buffer, stride * height, stride);
+				}
+
 				//Draw bitmap to drawing surface
-				Helpers.DrawImageUnscaled(drawingContext, bmp, actualRect.X, actualRect.Y);
+				Helpers.DrawImageUnscaled(drawingContext, _prPages[page].wpfBmp, actualRect.X, actualRect.Y);
 			}
 			else
 			{
@@ -1942,8 +1962,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				//Draw fill forms
 				DrawFillForms(bmp, page, actualRect, _invalidatePage != null && _invalidatePage == page, _invalidateRect.left, _invalidateRect.top, _invalidateRect.right, _invalidateRect.bottom);
 
+				if(_prPages[page].wpfBmp== null)
+				{
+					_prPages[page].wpfBmp = new WriteableBitmap(width, height, Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
+					int stride = bmp.Stride;
+					_prPages[page].wpfBmp.WritePixels(new Int32Rect(0, 0, _prPages[page].wpfBmp.PixelWidth, _prPages[page].wpfBmp.PixelHeight), bmp.Buffer, stride * height, stride);
+				}
+
 				//Draw bitmap to drawing surface
-				Helpers.DrawImageUnscaled(drawingContext, bmp, actualRect.X, actualRect.Y);
+				Helpers.DrawImageUnscaled(drawingContext, _prPages[page].wpfBmp, actualRect.X, actualRect.Y);
 			}
 		}
 
