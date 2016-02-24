@@ -25,6 +25,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		private SortedDictionary<int, List<HighlightInfo>> _highlightedText = new SortedDictionary<int, List<HighlightInfo>>();
 		private bool _mousePressed = false;
 		private bool _mousePressedInLink = false;
+		private bool _isShowSelection = false;
 		private int _onstartPageIndex = 0;
 		private Point _panToolInitialScrollPosition;
 		private Point _panToolInitialMousePosition;
@@ -68,9 +69,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		private Size _viewport = new Size(0, 0);
 		private Point _autoScrollPosition = new Point(0, 0);
 		private bool _isProgrammaticallyFocusSetted=false;
-
-		private PdfPage _invalidatePage = null;
-		private FS_RECTF _invalidateRect;
 
 		private PRCollection _prPages = new PRCollection();
 		private System.Windows.Threading.DispatcherTimer _invalidateTimer = null;
@@ -1106,6 +1104,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				EndPage = endPage,
 				EndIndex = endIndex
 			};
+			_isShowSelection = true;
 			InvalidateVisual();
 			OnSelectionChanged(EventArgs.Empty);
 		}
@@ -1505,7 +1504,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			_fillForms.Invalidate += FormsInvalidate;
 			_fillForms.OutputSelectedRect += FormsOutputSelectedRect;
 			_fillForms.SetCursor += FormsSetCursor;
-			_fillForms.FocusChanged += FormsFocusChanged;
 		}
 		#endregion
 
@@ -1905,19 +1903,21 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 			PdfBitmap bmp = _prPages.RenderPage(page, width, height, PageRotation(page), RenderFlags);
 			if (bmp != null)
-			{ 
+			{
+				var b = bmp.Clone();
 				//Draw fill forms
-				DrawFillForms(bmp, page, actualRect, _invalidatePage != null && _invalidatePage == page, _invalidateRect.left, _invalidateRect.top, _invalidateRect.right, _invalidateRect.bottom);
+				DrawFillForms(b, page, actualRect);
 
 				if (_prPages[page].wpfBmp == null)
-				{
 					_prPages[page].wpfBmp = new WriteableBitmap(width, height, Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
-					int stride = bmp.Stride;
-					_prPages[page].wpfBmp.WritePixels(new Int32Rect(0, 0, _prPages[page].wpfBmp.PixelWidth, _prPages[page].wpfBmp.PixelHeight), bmp.Buffer, stride * height, stride);
-				}
 
+				int stride = b.Stride;
+				_prPages[page].wpfBmp.WritePixels(new Int32Rect(0, 0, _prPages[page].wpfBmp.PixelWidth, _prPages[page].wpfBmp.PixelHeight), b.Buffer, stride * height, stride);
+				
 				//Draw bitmap to drawing surface
 				Helpers.DrawImageUnscaled(drawingContext, _prPages[page].wpfBmp, actualRect.X, actualRect.Y);
+
+				b.Dispose();
 			}
 			else
 			{
@@ -1959,20 +1959,30 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				//Draw page content to bitmap
 				page.RenderEx(bmp, 0, 0, width, height, PageRotation(page), RenderFlags);
 
-				//Draw fill forms
-				DrawFillForms(bmp, page, actualRect, _invalidatePage != null && _invalidatePage == page, _invalidateRect.left, _invalidateRect.top, _invalidateRect.right, _invalidateRect.bottom);
+				var b = bmp.Clone();
 
-				if(_prPages[page].wpfBmp== null)
+				//Draw fill forms
+				DrawFillForms(b, page, actualRect);
+
+				if (_wpfBmp == null || _wpfBmpW != width || _wpfBmpH != height)
 				{
-					_prPages[page].wpfBmp = new WriteableBitmap(width, height, Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
-					int stride = bmp.Stride;
-					_prPages[page].wpfBmp.WritePixels(new Int32Rect(0, 0, _prPages[page].wpfBmp.PixelWidth, _prPages[page].wpfBmp.PixelHeight), bmp.Buffer, stride * height, stride);
+					_wpfBmp = new WriteableBitmap(width, height, Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
+					_wpfBmpW = width;
+					_wpfBmpH = height;
 				}
+				int stride = b.Stride;
+				_wpfBmp.WritePixels(new Int32Rect(0, 0, _wpfBmp.PixelWidth, _wpfBmp.PixelHeight), b.Buffer, stride * height, stride);
 
 				//Draw bitmap to drawing surface
-				Helpers.DrawImageUnscaled(drawingContext, _prPages[page].wpfBmp, actualRect.X, actualRect.Y);
+				Helpers.DrawImageUnscaled(drawingContext, _wpfBmp, actualRect.X, actualRect.Y);
+
+				b.Dispose();
 			}
 		}
+		private WriteableBitmap _wpfBmp = null;
+		private int _wpfBmpW = 0;
+		private int _wpfBmpH = 0;
+
 
 		/// <summary>
 		/// Draw fill forms
@@ -1999,18 +2009,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <item><see cref="DrawPageSeparators"/></item>
 		/// </list>
 		/// </remarks>
-		protected virtual void DrawFillForms(PdfBitmap bmp, PdfPage page, Rect actualRect, bool isNeedDrawBg, float bgLeft, float bgTop, float bgRight, float bgBottom)
+		protected virtual void DrawFillForms(PdfBitmap bmp, PdfPage page, Rect actualRect)
 		{
 			int width = Helpers.PointsToPixels(actualRect.Width);
 			int height = Helpers.PointsToPixels(actualRect.Height);
-
-			if (isNeedDrawBg)
-			{
-				int pt1X, pt2X, pt1Y, pt2Y;
-				page.PageToDeviceEx(0, 0, width, height, PageRotation(page), bgLeft, bgTop, out pt1X, out pt1Y);
-				page.PageToDeviceEx(0, 0, width, height, PageRotation(page), bgRight, bgBottom, out pt2X, out pt2Y);
-				bmp.FillRectEx(pt1X, pt1Y, pt2X - pt1X, pt2Y - pt1Y, Helpers.ToArgb(PageBackColor));
-			}
 
 			//Draw fillforms to bitmap
 			page.RenderForms(bmp, 0, 0, width, height, PageRotation(page), RenderFlags);
@@ -2166,7 +2168,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </remarks>
 		protected virtual void DrawTextSelection(DrawingContext drawingContext, SelectInfo selInfo, int pageIndex)
 		{
-			if (selInfo.StartPage < 0)
+			if (selInfo.StartPage < 0 || !_isShowSelection)
 				return;
 
 			if (pageIndex >= selInfo.StartPage && pageIndex <= selInfo.EndPage)
@@ -2381,6 +2383,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			double w, h;
 			Pdfium.FPDF_GetPageSizeByIndex(Document.Handle, index, out w, out h);
+
+			//converts PDF points which is 1/72 inch to WPF DIU (Device Independed Units) which is 96 units per inch.
+			w = w / 72.0 * 96;
+			h = h / 72.0 * 96;
 
 			var clientSize = ClientRect;
 			double nw = clientSize.Width;
@@ -2871,17 +2877,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		#region FillForms event handlers
 		private void FormsInvalidate(object sender, InvalidatePageEventArgs e)
 		{
-			if (_invalidatePage == null)
-			{
-				_invalidatePage = e.Page;
-				_invalidateRect = new FS_RECTF() { left = e.Rect.left + 3.0f, right = e.Rect.right - 3.0f, top = e.Rect.top + 3.0f, bottom = e.Rect.bottom - 3.0f };
-			}
 			OnFormsInvalidate(e);
-		}
-
-		private void FormsFocusChanged(object sender, FocusChangedEventArgs e)
-		{
-			_invalidatePage = null;
 		}
 
 		private void FormsGotoPage(object sender, EventArgs<int> e)
@@ -3240,6 +3236,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					StartIndex = si,
 					EndIndex = ei
 				};
+				_isShowSelection = true;
 				if (_selectInfo.StartPage >= 0)
 					OnSelectionChanged(EventArgs.Empty);
 				InvalidateVisual();
@@ -3255,6 +3252,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                 StartIndex = Document.Pages[page_index].Text.GetCharIndexAtPos((float)page_point.X, (float)page_point.Y, 10.0f, 10.0f),
 				EndIndex = Document.Pages[page_index].Text.GetCharIndexAtPos((float)page_point.X, (float)page_point.Y, 10.0f, 10.0f)
 			};
+			_isShowSelection = false;
 			if (_selectInfo.StartPage >= 0)
 				OnSelectionChanged(EventArgs.Empty);
 		}
@@ -3272,6 +3270,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 						EndIndex = character_index,
 						StartIndex = _selectInfo.StartIndex
 					};
+					_isShowSelection = true;
 				}
 				InvalidateVisual();
 			}
