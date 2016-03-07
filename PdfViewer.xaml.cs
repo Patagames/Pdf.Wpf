@@ -1487,7 +1487,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			ShowCurrentPageHighlight = true;
 			PageVAlign = VerticalAlignment.Center;
 			PageHAlign = HorizontalAlignment.Center;
-			RenderFlags = RenderFlags.FPDF_ANNOT;
+			RenderFlags = RenderFlags.FPDF_ANNOT | RenderFlags.FPDF_LCD_TEXT | RenderFlags.FPDF_NO_CATCH;
 			TilesCount = 2;
 			ShowLoadingIcon = true;
 			UseProgressiveRender = true;
@@ -1990,11 +1990,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <param name="bmp"><see cref="PdfBitmap"/> object</param>
 		/// <param name="page">Page to be drawn</param>
 		/// <param name="actualRect">Page bounds in control coordinates</param>
-		/// <param name="isNeedDrawBg">Indicates that  the background needs to be drawn behind the forms.</param>
-		/// <param name="bgLeft">The left side of background rectangle</param>
-		/// <param name="bgTop">The top side of background rectangle</param>
-		/// <param name="bgRight">The right side of background rectangle</param>
-		/// <param name="bgBottom">The bottom side of background rectangle</param>
 		/// <remarks>
 		/// Full page rendering is performed in the following order:
 		/// <list type="bullet">
