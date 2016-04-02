@@ -1,0 +1,67 @@
+﻿<UserControl x:Class="Patagames.Pdf.Net.Controls.Wpf.ToolBars.SearchBar"
+             x:ClassModifier="internal"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:Patagames.Pdf.Net.Controls.Wpf.ToolBars"
+             xmlns:prop="clr-namespace:Patagames.Pdf.Net.Controls.Wpf.Properties"
+             mc:Ignorable="d">
+    <Border Name="pnlBorder">
+        <StackPanel Orientation="Horizontal" Height="32">
+            <Button Name="picMenu" Click="picMenu_Click" Padding="0" Width="32" Height="32">
+                <Button.Content>
+                    <Image Width="32" Height="32" Source="pack://application:,,,/Patagames.Pdf.Wpf;component/Resources/menu.png"/>
+                </Button.Content>
+                <Button.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem 
+                            Header="{Binding Path=MenuItemMathCaseText, Mode=OneWay}" 
+                            Tag="MatchCase"
+                            IsChecked="{Binding Path=IsCheckedMatchCase, Mode=OneWay}"
+                            Click="searchMenuItem_Click"
+                            />
+                        <MenuItem 
+                            Header="{Binding Path=MenuItemMatchWholeWordText, Mode=OneWay}" 
+                            Tag="MatchWholeWord"
+                            IsChecked="{Binding Path=IsCheckedMatchWholeWord, Mode=OneWay}"
+                            Click="searchMenuItem_Click"
+                            />
+                    </ContextMenu>
+                </Button.ContextMenu>
+            </Button>
+            <Border BorderBrush="Black" Background="White" BorderThickness="1" Padding="5,0,5,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBox Background="White" BorderThickness="0" Name="tbSearch" TextChanged="tbSearch_TextChanged" Width="120"></TextBox>
+                    <TextBlock Name="lblInfo">1 of 1</TextBlock>
+                </StackPanel>
+            </Border>
+            <Button Name="picUp" Click="picUp_Click" Width="32" Height="32">
+                <Image Width="32" Height="32" Source="pack://application:,,,/Patagames.Pdf.Wpf;component/Resources/up.png">
+                    <Image.Style>
+                        <Style TargetType="Image">
+                            <Style.Triggers>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.5" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Image.Style>
+                </Image>
+            </Button>
+            <Button Name="picDown" Click="picDown_Click" Width="32" Height="32">
+                <Image Width="32" Height="32" Source="pack://application:,,,/Patagames.Pdf.Wpf;component/Resources/down.png">
+                    <Image.Style>
+                        <Style TargetType="Image">
+                            <Style.Triggers>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.5" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Image.Style>
+                </Image>
+            </Button>
+        </StackPanel>
+    </Border>
+</UserControl>

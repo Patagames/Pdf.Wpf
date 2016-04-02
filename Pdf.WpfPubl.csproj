@@ -39,7 +39,10 @@
     </Reference>
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
+    <Reference Include="ReachFramework" />
     <Reference Include="System" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Printing" />
     <Reference Include="System.Xaml" />
     <Reference Include="WindowsBase" />
   </ItemGroup>
@@ -52,6 +55,13 @@
       <DependentUpon>PdfViewer.xaml</DependentUpon>
     </Compile>
     <Compile Include="PRCollection.cs" />
+    <Compile Include="Print\PagePrintedEventArgs.cs" />
+    <Compile Include="Print\PdfDocumentPaginator.cs" />
+    <Compile Include="Print\PdfPrint.cs" />
+    <Compile Include="Print\PrintProgress.xaml.cs">
+      <DependentUpon>PrintProgress.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Print\ThreadSafePrintDialog.cs" />
     <Compile Include="PRItem.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
@@ -68,6 +78,19 @@
     </Compile>
     <Compile Include="SelectInfo.cs" />
     <Compile Include="SizeModes.cs" />
+    <Compile Include="ToolBars\PdfToolBar.cs" />
+    <Compile Include="ToolBars\PdfToolBarClipboard.cs" />
+    <Compile Include="ToolBars\PdfToolBarMain.cs" />
+    <Compile Include="ToolBars\PdfToolBarPages.cs" />
+    <Compile Include="ToolBars\PdfToolBarRotate.cs" />
+    <Compile Include="ToolBars\PdfToolBarSearch.cs" />
+    <Compile Include="ToolBars\PdfToolBarSizes.cs" />
+    <Compile Include="ToolBars\PdfToolBarViewModes.cs" />
+    <Compile Include="ToolBars\PdfToolBarZoom.cs" />
+    <Compile Include="ToolBars\PdfToolBarZoomEx.cs" />
+    <Compile Include="ToolBars\SearchBar.xaml.cs">
+      <DependentUpon>SearchBar.xaml</DependentUpon>
+    </Compile>
     <Compile Include="ViewModes.cs" />
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -84,6 +107,41 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="Print\PrintProgress.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="ToolBars\SearchBar.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Resources\docOpen.png" />
+    <Resource Include="Resources\docPrint.png" />
+    <Resource Include="Resources\down.png" />
+    <Resource Include="Resources\menu.png" />
+    <Resource Include="Resources\modeHorizontal.png" />
+    <Resource Include="Resources\modeSingle.png" />
+    <Resource Include="Resources\modeTiles.png" />
+    <Resource Include="Resources\modeVertical.png" />
+    <Resource Include="Resources\rotateLeft.png" />
+    <Resource Include="Resources\rotateRight.png" />
+    <Resource Include="Resources\selectAll.png" />
+    <Resource Include="Resources\textCopy.png" />
+    <Resource Include="Resources\toBegin.png" />
+    <Resource Include="Resources\toEnd.png" />
+    <Resource Include="Resources\toLeft.png" />
+    <Resource Include="Resources\toRight.png" />
+    <Resource Include="Resources\up.png" />
+    <Resource Include="Resources\viewActualSize.PNG" />
+    <Resource Include="Resources\viewFitHeight.PNG" />
+    <Resource Include="Resources\viewFitPage.PNG" />
+    <Resource Include="Resources\viewFitWidth.PNG" />
+    <Resource Include="Resources\zoomExIn.png" />
+    <Resource Include="Resources\zoomExOut.png" />
+    <Resource Include="Resources\zoomIn.png" />
+    <Resource Include="Resources\zoomOut.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

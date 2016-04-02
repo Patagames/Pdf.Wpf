@@ -129,4 +129,154 @@
   <data name="LoadingText" xml:space="preserve">
     <value>Loading...</value>
   </data>
+  <data name="ErrorHeader" xml:space="preserve">
+    <value>Error!</value>
+  </data>
+  <data name="OpenDialogFilter" xml:space="preserve">
+    <value>PDF Files (*.pdf)|*.pdf</value>
+  </data>
+  <data name="btnOpenText" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="btnOpenToolTipText" xml:space="preserve">
+    <value>Click to open a PDF file</value>
+  </data>
+  <data name="btnPrintText" xml:space="preserve">
+    <value>Print</value>
+  </data>
+  <data name="btnPrintToolTipText" xml:space="preserve">
+    <value>Click to print the PDF file</value>
+  </data>
+  <data name="txtPrinting" xml:space="preserve">
+    <value>Printed page {0} / {1}</value>
+  </data>
+  <data name="txtPrintingStop" xml:space="preserve">
+    <value>Please wait...</value>
+  </data>
+  <data name="txtPromptPrintAbort" xml:space="preserve">
+    <value>Are you sure you want to cancel the current print job?</value>
+  </data>
+  <data name="btnActualSizeText" xml:space="preserve">
+    <value>Actual Size</value>
+  </data>
+  <data name="btnActualSizeToolTipText" xml:space="preserve">
+    <value>Set the zoom level to the page's actual size</value>
+  </data>
+  <data name="btnCopyText" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="btnCopyToolTipText" xml:space="preserve">
+    <value>Copy the selection to the clipboard</value>
+  </data>
+  <data name="btnFirstPageText" xml:space="preserve">
+    <value>First Page</value>
+  </data>
+  <data name="btnFirstPageToolTipText" xml:space="preserve">
+    <value>View the first page of the file</value>
+  </data>
+  <data name="btnFitHeightText" xml:space="preserve">
+    <value>Fit Height</value>
+  </data>
+  <data name="btnFitHeightToolTipText" xml:space="preserve">
+    <value>Set the zoom level so the page height fits the window height</value>
+  </data>
+  <data name="btnFitPageText" xml:space="preserve">
+    <value>Fit Page</value>
+  </data>
+  <data name="btnFitPageToolTipText" xml:space="preserve">
+    <value>Set the zoom level so one full page fits in the window</value>
+  </data>
+  <data name="btnFitWidthText" xml:space="preserve">
+    <value>Fit Width</value>
+  </data>
+  <data name="btnFitWidthToolTipText" xml:space="preserve">
+    <value>Set the zoom level so the page width fits the window width</value>
+  </data>
+  <data name="btnLastPageText" xml:space="preserve">
+    <value>Last Page</value>
+  </data>
+  <data name="btnLastPageToolTipText" xml:space="preserve">
+    <value>View the last page of the file</value>
+  </data>
+  <data name="btnModeHorizontalText" xml:space="preserve">
+    <value>Continuous Horizontal</value>
+  </data>
+  <data name="btnModeHorizontalToolTipText" xml:space="preserve">
+    <value>View pages continuously with horizontal scrolling enabled</value>
+  </data>
+  <data name="btnModeSingleText" xml:space="preserve">
+    <value>Single Page</value>
+  </data>
+  <data name="btnModeSingleToolTipText" xml:space="preserve">
+    <value>View one page at time</value>
+  </data>
+  <data name="btnModeTilesText" xml:space="preserve">
+    <value>Continuous Facing</value>
+  </data>
+  <data name="btnModeTilesToolTipText" xml:space="preserve">
+    <value>View pages side-by-side with continuous scrolling enabled</value>
+  </data>
+  <data name="btnModeVerticalText" xml:space="preserve">
+    <value>Continuous Vertical</value>
+  </data>
+  <data name="btnModeVerticalToolTipText" xml:space="preserve">
+    <value>View pages continuously with vertical scrolling enabled</value>
+  </data>
+  <data name="btnNextPageText" xml:space="preserve">
+    <value>Next Page</value>
+  </data>
+  <data name="btnNextPageToolTipText" xml:space="preserve">
+    <value>Go forward one page</value>
+  </data>
+  <data name="btnPreviousPageText" xml:space="preserve">
+    <value>Previous Page</value>
+  </data>
+  <data name="btnPreviousPageToolTipText" xml:space="preserve">
+    <value>Go back one page</value>
+  </data>
+  <data name="btnRotateLeftText" xml:space="preserve">
+    <value>Rotate Left</value>
+  </data>
+  <data name="btnRotateLeftToolTipText" xml:space="preserve">
+    <value>Rotate the page view 90 degrees counterclockwise</value>
+  </data>
+  <data name="btnRotateRightText" xml:space="preserve">
+    <value>Rotate Right</value>
+  </data>
+  <data name="btnRotateRightToolTipText" xml:space="preserve">
+    <value>Rotate the page view 90 degrees clockwise</value>
+  </data>
+  <data name="btnSelectAllText" xml:space="preserve">
+    <value>Select All</value>
+  </data>
+  <data name="btnSelectAllToolTipText" xml:space="preserve">
+    <value>Select the entire document</value>
+  </data>
+  <data name="btnZoomComboText" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="btnZoomComboToolTipText" xml:space="preserve">
+    <value>Set the zoom level to a specific value</value>
+  </data>
+  <data name="btnZoomInText" xml:space="preserve">
+    <value>Zoom In</value>
+  </data>
+  <data name="btnZoomInToolTipText" xml:space="preserve">
+    <value>Increase the zoom level</value>
+  </data>
+  <data name="btnZoomOutText" xml:space="preserve">
+    <value>Zoom Out</value>
+  </data>
+  <data name="btnZoomOutToolTipText" xml:space="preserve">
+    <value>Decrease the zoom level</value>
+  </data>
+  <data name="searchLblnfo" xml:space="preserve">
+    <value>{0} of {1}</value>
+  </data>
+  <data name="menuItemMatchCase" xml:space="preserve">
+    <value>Match Case</value>
+  </data>
+  <data name="menuItemMatchWholeWord" xml:space="preserve">
+    <value>Match Whole Word</value>
+  </data>
 </root>

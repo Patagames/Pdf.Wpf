@@ -22,15 +22,27 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
         internal static int Dpi { get; private set; }
 
-        internal static int PointsToPixels(double points)
-        {
-            return (int)(points * Dpi / 72.0);
-        }
+		internal static int PointsToPixels(double points, int dpi)
+		{
+			return (int)(points * dpi / 72.0);
+		}
 
-        internal static double PixelsToPoints(int pixels)
+		internal static int PointsToPixels(double points)
         {
-            return pixels * 72.0 / Dpi;
-        }
+			return PointsToPixels(points, Dpi);
+
+		}
+
+		internal static double PixelsToPoints(int pixels, int dpi)
+		{
+			return pixels * 72.0 / dpi;
+		}
+
+		internal static double PixelsToPoints(int pixels)
+        {
+			return PixelsToPoints(pixels, Dpi);
+
+		}
 
         #endregion DPIhandling
 
