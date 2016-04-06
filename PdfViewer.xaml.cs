@@ -1531,7 +1531,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			ShowCurrentPageHighlight = true;
 			PageVAlign = VerticalAlignment.Center;
 			PageHAlign = HorizontalAlignment.Center;
-			RenderFlags = RenderFlags.FPDF_ANNOT | RenderFlags.FPDF_LCD_TEXT | RenderFlags.FPDF_NO_CATCH;
+			RenderFlags = RenderFlags.FPDF_LCD_TEXT | RenderFlags.FPDF_NO_CATCH;
 			TilesCount = 2;
 			ShowLoadingIcon = true;
 			UseProgressiveRender = true;
