@@ -72,6 +72,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 		private PRCollection _prPages = new PRCollection();
 		private System.Windows.Threading.DispatcherTimer _invalidateTimer = null;
+
+		private byte[] _emptyPixels = null;
 		#endregion
 
 		#region Events
@@ -1659,10 +1661,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					//Draw page background
 					DrawPageBackColor(drawingContext, actualRect.X, actualRect.Y, actualRect.Width, actualRect.Height);
 					//Draw page
-					if (UseProgressiveRender)
-						DrawPage(drawingContext, Document.Pages[i], actualRect);
-					else
-						DrawPageNonProgressive(drawingContext, Document.Pages[i], actualRect);
+					DrawPage(drawingContext, Document.Pages[i], actualRect);
 					//Draw page border
 					DrawPageBorder(drawingContext, actualRect);
 					//Draw fillforms selection
@@ -1944,22 +1943,44 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				return;
 			int width = Helpers.PointsToPixels(actualRect.Width);
 			int height = Helpers.PointsToPixels(actualRect.Height);
+			if (width <= 0 || height <= 0)
+				return;
 
-			PdfBitmap bmp = _prPages.RenderPage(page, width, height, PageRotation(page), RenderFlags);
+			int cw = Helpers.PointsToPixels(ClientRect.Width);
+			int ch = Helpers.PointsToPixels(ClientRect.Height);
+			if (cw <= 0 || ch <= 0)
+				return;
+
+			PdfBitmap bmp = _prPages.RenderPage(page, width, height, PageRotation(page), RenderFlags, UseProgressiveRender);
 			if (bmp != null)
 			{
 				var b = bmp.Clone();
 				//Draw fill forms
 				DrawFillForms(b, page, actualRect);
 
-				if (_prPages[page].wpfBmp == null)
-					_prPages[page].wpfBmp = new WriteableBitmap(width, height, Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
-
 				int stride = b.Stride;
-				_prPages[page].wpfBmp.WritePixels(new Int32Rect(0, 0, _prPages[page].wpfBmp.PixelWidth, _prPages[page].wpfBmp.PixelHeight), b.Buffer, stride * height, stride);
-				
+
+				if (_prPages[page].wpfBmp == null || _prPages[page].wpfBmp.PixelWidth != cw || _prPages[page].wpfBmp.PixelHeight != ch)
+				{
+					_prPages[page].wpfBmp = new WriteableBitmap(Math.Min(width, cw), Math.Min(height, ch), Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
+					_emptyPixels = new byte[stride * _prPages[page].wpfBmp.PixelHeight];
+				}
+
+				int yofs = Math.Max(0, Helpers.PointsToPixels(-actualRect.Y));
+				int xofs = Math.Max(0, Helpers.PointsToPixels(-actualRect.X));
+				int ofsHeight = _prPages[page].wpfBmp.PixelHeight;
+				int ofsWidth = _prPages[page].wpfBmp.PixelWidth;
+
+				if (yofs + ofsHeight > height)
+					ofsHeight = height - yofs;
+				if (xofs + ofsWidth > width)
+					ofsWidth = width - xofs;
+
+				_prPages[page].wpfBmp.WritePixels(new Int32Rect(0, 0, _prPages[page].wpfBmp.PixelWidth, _prPages[page].wpfBmp.PixelHeight), _emptyPixels , stride, 0);
+				_prPages[page].wpfBmp.WritePixels(new Int32Rect(xofs, yofs, ofsWidth, ofsHeight), b.Buffer, stride * height, stride, 0, 0);
+
 				//Draw bitmap to drawing surface
-				Helpers.DrawImageUnscaled(drawingContext, _prPages[page].wpfBmp, actualRect.X, actualRect.Y);
+				Helpers.DrawImageUnscaled(drawingContext, _prPages[page].wpfBmp, actualRect.X + Helpers.PixelsToPoints(xofs), actualRect.Y + Helpers.PixelsToPoints(yofs));
 
 				b.Dispose();
 			}
@@ -1970,63 +1991,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				StartInvalidateTimer();
 			}
 		}
-
-		/// <summary>
-		/// Draws page content and fillforms if <see cref="UseProgressiveRender"/> flag is not set
-		/// </summary>
-		/// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
-		/// <param name="page">Page to be drawn</param>
-		/// <param name="actualRect">Page bounds in control coordinates</param>
-		/// <remarks>
-		/// Full page rendering is performed in the following order:
-		/// <list type="bullet">
-		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> / <see cref="DrawLoadingIcon"/></item>
-		/// <item><see cref="DrawFillForms"/></item>
-		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection"/></item>
-		/// <item><see cref="DrawTextHighlight"/></item>
-		/// <item><see cref="DrawTextSelection"/></item>
-		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
-		/// </list>
-		/// </remarks>
-		private void DrawPageNonProgressive(DrawingContext drawingContext, PdfPage page, Rect actualRect)
-		{
-			if (actualRect.Width <= 0 || actualRect.Height <= 0)
-				return;
-			int width = Helpers.PointsToPixels(actualRect.Width);
-			int height = Helpers.PointsToPixels(actualRect.Height);
-
-			using (PdfBitmap bmp = new PdfBitmap(width, height, true))
-			{
-				//Draw page content to bitmap
-				page.RenderEx(bmp, 0, 0, width, height, PageRotation(page), RenderFlags);
-
-				var b = bmp.Clone();
-
-				//Draw fill forms
-				DrawFillForms(b, page, actualRect);
-
-				if (_wpfBmp == null || _wpfBmpW != width || _wpfBmpH != height)
-				{
-					_wpfBmp = new WriteableBitmap(width, height, Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
-					_wpfBmpW = width;
-					_wpfBmpH = height;
-				}
-				int stride = b.Stride;
-				_wpfBmp.WritePixels(new Int32Rect(0, 0, _wpfBmp.PixelWidth, _wpfBmp.PixelHeight), b.Buffer, stride * height, stride);
-
-				//Draw bitmap to drawing surface
-				Helpers.DrawImageUnscaled(drawingContext, _wpfBmp, actualRect.X, actualRect.Y);
-
-				b.Dispose();
-			}
-		}
-		private WriteableBitmap _wpfBmp = null;
-		private int _wpfBmpW = 0;
-		private int _wpfBmpH = 0;
-
 
 		/// <summary>
 		/// Draw fill forms
