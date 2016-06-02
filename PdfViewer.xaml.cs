@@ -1961,15 +1961,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				int stride = b.Stride;
 
 				if (_prPages[page].wpfBmp == null || _prPages[page].wpfBmp.PixelWidth != cw || _prPages[page].wpfBmp.PixelHeight != ch)
-				{
 					_prPages[page].wpfBmp = new WriteableBitmap(Math.Min(width, cw), Math.Min(height, ch), Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
-					_emptyPixels = new byte[stride * _prPages[page].wpfBmp.PixelHeight];
-				}
 
 				int yofs = Math.Max(0, Helpers.PointsToPixels(-actualRect.Y));
 				int xofs = Math.Max(0, Helpers.PointsToPixels(-actualRect.X));
 				int ofsHeight = _prPages[page].wpfBmp.PixelHeight;
 				int ofsWidth = _prPages[page].wpfBmp.PixelWidth;
+
+				if(_emptyPixels == null || stride * _prPages[page].wpfBmp.PixelHeight > _emptyPixels.Length)
+					_emptyPixels = new byte[stride * _prPages[page].wpfBmp.PixelHeight];
 
 				if (yofs + ofsHeight > height)
 					ofsHeight = height - yofs;
