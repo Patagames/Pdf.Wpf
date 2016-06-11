@@ -136,6 +136,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <summary>
 		/// Shows PrintDialog and starts asynchronous execution of a printing.
 		/// </summary>
+		/// <param name="window">Parent window for PrintDialog. If Null then PrintDialog not shown.</param>
 		/// <remarks>This method does not breaks the previous operation before execute a new printing.</remarks>
 		public void ShowDialog(Window window)
 		{

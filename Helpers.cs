@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Media;
@@ -46,7 +47,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
         #endregion DPIhandling
 
-        #region Colors, pens, brushes, Rects and Sizes
+        #region Colors, pens, brushes, Rects and Sizes, etc
         private static Color _emptyColor = Color.FromArgb(0, 0, 0, 0);
 		public static Color ColorEmpty { get { return _emptyColor; } }
 
@@ -96,6 +97,16 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				size.Height = 0;
 			return new Rect(location, size);
 		}
+
+		internal static double PageMarginHorizontal(Thickness pageMargin)
+		{
+			return pageMargin.Left + pageMargin.Right;
+        }
+
+		internal static double PageMarginVertical(Thickness pageMargin)
+		{
+			return pageMargin.Top + pageMargin.Bottom;
+        }
 		#endregion
 
 		#region Render
@@ -113,8 +124,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			drawingContext.DrawRectangle(null, pen, rect);
 		}
+		#endregion
 
-        #endregion
-
-    }
+	}
 }

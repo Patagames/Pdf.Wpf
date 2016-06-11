@@ -55,7 +55,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 					case SizeModes.Zoom:
 						return PdfViewer.Zoom * 100;
 					default:
-						return PdfViewer.CalcActualRect(PdfViewer.CurrentIndex).Width * 100 / page.Width;
+							return PdfViewer.CalcActualRect(PdfViewer.CurrentIndex).Width * 100 / (page.Width / 72.0 * 96);
 				}
 			}
 		}
