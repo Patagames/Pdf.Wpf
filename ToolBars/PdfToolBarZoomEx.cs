@@ -104,7 +104,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			{
 				item = new MenuItem();
 				item.Header = string.Format("{0:0.00}%", ZoomLevel[i]);
-				item.Name = "btnZoomLevel_" + ZoomLevel[i].ToString().Replace(".","_");
+				item.Name = "btnZoomLevel_" + ZoomLevel[i].ToString().Replace(".", "_").Replace(",", "_");
 				item.Tag = i;
 				item.Click += ZoomLevel_Click;
 				btn.ContextMenu.Items.Add(item);

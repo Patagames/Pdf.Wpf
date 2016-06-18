@@ -98,12 +98,12 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			return new Rect(location, size);
 		}
 
-		internal static double PageMarginHorizontal(Thickness pageMargin)
+		internal static double ThicknessHorizontal(Thickness pageMargin)
 		{
 			return pageMargin.Left + pageMargin.Right;
         }
 
-		internal static double PageMarginVertical(Thickness pageMargin)
+		internal static double ThicknessVertical(Thickness pageMargin)
 		{
 			return pageMargin.Top + pageMargin.Bottom;
         }
