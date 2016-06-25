@@ -692,6 +692,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				{
 					_zoom = value;
 					UpdateDocLayout();
+
+					var rect = renderRects(CurrentIndex);
+					if (rect.Width != 0 && rect.Height != 0)
+					{
+						SetVerticalOffset(rect.Y);
+						SetHorizontalOffset(rect.X);
+					}
+
 					OnZoomChanged(EventArgs.Empty);
 				}
 			}
@@ -2755,8 +2763,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				if (idx >= 0)
 				{
 					SetCurrentPage(idx);
-					InvalidateVisual();
 				}
+				InvalidateVisual();
 			}
 		}
 
