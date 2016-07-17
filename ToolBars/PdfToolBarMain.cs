@@ -172,6 +172,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 		/// <param name="item">The item that has been clicked</param>
 		protected virtual void OnPrintClick(Button item)
 		{
+			if (PdfViewer.Document.FormFill != null)
+				PdfViewer.Document.FormFill.ForceToKillFocus();
 			item.IsEnabled = false;
 			StartPrint();
 		}

@@ -51,9 +51,7 @@
     <Compile Include="Helpers.cs" />
     <Compile Include="HighlightInfo.cs" />
     <Compile Include="MouseModes.cs" />
-    <Compile Include="PdfViewer.xaml.cs">
-      <DependentUpon>PdfViewer.xaml</DependentUpon>
-    </Compile>
+    <Compile Include="PdfViewer.cs" />
     <Compile Include="PRCollection.cs" />
     <Compile Include="Print\PagePrintedEventArgs.cs" />
     <Compile Include="Print\PdfDocumentPaginator.cs" />
@@ -103,10 +101,6 @@
     <AppDesigner Include="Properties\" />
   </ItemGroup>
   <ItemGroup>
-    <Page Include="PdfViewer.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Include="Print\PrintProgress.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

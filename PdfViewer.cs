@@ -18,7 +18,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 	/// <summary>
 	/// Represents a pdf view control for displaying an Pdf document.
 	/// </summary>	
-	public partial class PdfViewer : UserControl, IScrollInfo
+	public partial class PdfViewer : Control, IScrollInfo
 	{
 		#region Private fields
 		private SelectInfo _selectInfo = new SelectInfo() { StartPage = -1 };
@@ -1566,7 +1566,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			ShowLoadingIcon = true;
 			UseProgressiveRender = true;
 
-			InitializeComponent();
+			//InitializeComponent();
 
 			_fillForms = new PdfForms();
 			_fillForms.SynchronizingObject = new DispatcherISyncInvoke(Dispatcher);
