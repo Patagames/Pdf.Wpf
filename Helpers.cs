@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
@@ -114,7 +115,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			drawingContext.DrawImage(wpfBmp, new Rect(x, y, PixelsToPoints(wpfBmp.PixelWidth), PixelsToPoints(wpfBmp.PixelHeight)));
 		}
-
 		internal static void FillRectangle(DrawingContext drawingContext, Brush brush, Rect rect)
 		{
 			drawingContext.DrawRectangle(brush, null, rect);
@@ -125,6 +125,17 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			drawingContext.DrawRectangle(null, pen, rect);
 		}
 		#endregion
+
+		public struct Int32Size
+		{
+			public int Width;
+			public int Height;
+
+			public bool Equals(Int32Size obj)
+			{
+				return (Width == obj.Width) && (Height == obj.Height);
+			}
+		}
 
 	}
 }

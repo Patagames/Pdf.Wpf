@@ -62,8 +62,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 
 		private Rect[] _renderRects;
-		private int _startPage { get { return ViewMode == ViewModes.SinglePage ? Document.Pages.CurrentIndex : 0; } }
-		private int _endPage { get { return ViewMode == ViewModes.SinglePage ? Document.Pages.CurrentIndex : (_renderRects != null ? _renderRects.Length - 1 : -1); } }
+		private int _startPage { get { return Document == null ? 0 : (ViewMode == ViewModes.SinglePage ? Document.Pages.CurrentIndex : 0); } }
+		private int _endPage { get { return Document == null ? -1 : (ViewMode == ViewModes.SinglePage ? Document.Pages.CurrentIndex : (_renderRects != null ? _renderRects.Length - 1 : -1)); } }
 
 		private Size _extent = new Size(0, 0);
 		private Size _viewport = new Size(0, 0);
@@ -73,7 +73,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		private PRCollection _prPages = new PRCollection();
 		private System.Windows.Threading.DispatcherTimer _invalidateTimer = null;
 
-		private byte[] _emptyPixels = null;
+		WriteableBitmap _canvasWpfBitmap = null;
 		#endregion
 
 		#region Events
@@ -1369,6 +1369,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </summary>
 		public void UpdateDocLayout()
 		{
+			_prPages.ReleaseCanvas(); //something changed. Release canvas
 			double w = ActualWidth;
 			double h = ActualHeight;
 			if (w > 0 && h > 0)
@@ -1689,6 +1690,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				//For store coordinates of pages separators
 				var separator = new List<Point>();
 
+				int cw = Helpers.PointsToPixels(ClientRect.Width);
+				int ch = Helpers.PointsToPixels(ClientRect.Height);
+				if (cw <= 0 || ch <= 0)
+					return;
+
+				//Initialize the Canvas bitmap
+				_prPages.InitCanvas(new Helpers.Int32Size(){ Width = cw, Height = ch });
+				bool allPagesAreRendered = true;
+
 				//starting draw pages in vertical or horizontal modes
 				for (int i = _startPage; i <= _endPage; i++)
 				{
@@ -1703,7 +1713,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					//Draw page background
 					DrawPageBackColor(drawingContext, actualRect.X, actualRect.Y, actualRect.Width, actualRect.Height);
 					//Draw page
-					DrawPage(drawingContext, Document.Pages[i], actualRect);
+					allPagesAreRendered &= DrawPage(drawingContext, Document.Pages[i], actualRect);
 					//Draw page border
 					DrawPageBorder(drawingContext, actualRect);
 					//Draw fillforms selection
@@ -1721,6 +1731,20 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 				//Draw pages separators
 				DrawPageSeparators(drawingContext, ref separator);
+
+				//Convert PdfBitmap into Wpf WriteableBitmap
+				int stride = _prPages.CanvasBitmap.Stride;
+				if (_canvasWpfBitmap == null || _canvasWpfBitmap.PixelWidth != cw || _canvasWpfBitmap.PixelHeight != ch)
+					_canvasWpfBitmap = new WriteableBitmap(cw, ch, Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
+				_canvasWpfBitmap.WritePixels(new Int32Rect(0, 0, cw, ch), _prPages.CanvasBitmap.Buffer, stride * ch, stride, 0, 0);
+
+				//Draw Canvas bitmap
+				Helpers.DrawImageUnscaled(drawingContext, _canvasWpfBitmap, 0, 0);
+
+				if (!allPagesAreRendered)
+					StartInvalidateTimer();
+				else
+					_prPages.ReleaseCanvas();
 
 				_selectedRectangles.Clear();
 			}
@@ -1979,58 +2003,29 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <item><see cref="DrawPageSeparators"/></item>
 		/// </list>
 		/// </remarks>
-		protected virtual void DrawPage(DrawingContext drawingContext, PdfPage page, Rect actualRect)
+		protected virtual bool DrawPage(DrawingContext drawingContext, PdfPage page, Rect actualRect)
 		{
 			if (actualRect.Width <= 0 || actualRect.Height <= 0)
-				return;
+				return true;
 			int width = Helpers.PointsToPixels(actualRect.Width);
 			int height = Helpers.PointsToPixels(actualRect.Height);
 			if (width <= 0 || height <= 0)
-				return;
+				return true;
 
-			int cw = Helpers.PointsToPixels(ClientRect.Width);
-			int ch = Helpers.PointsToPixels(ClientRect.Height);
-			if (cw <= 0 || ch <= 0)
-				return;
-
-			PdfBitmap bmp = _prPages.RenderPage(page, width, height, PageRotation(page), RenderFlags, UseProgressiveRender);
-			if (bmp != null)
+			var pageRect = new Int32Rect(
+				Helpers.PointsToPixels(actualRect.X), 
+				Helpers.PointsToPixels(actualRect.Y), width, height);
+			if (_prPages.RenderPage(page, pageRect, PageRotation(page), RenderFlags, UseProgressiveRender))
 			{
-				var b = bmp.Clone();
 				//Draw fill forms
-				DrawFillForms(b, page, actualRect);
-
-				int stride = b.Stride;
-
-				if (_prPages[page].wpfBmp == null || _prPages[page].wpfBmp.PixelWidth != cw || _prPages[page].wpfBmp.PixelHeight != ch)
-					_prPages[page].wpfBmp = new WriteableBitmap(Math.Min(width, cw), Math.Min(height, ch), Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
-
-				int yofs = Math.Max(0, Helpers.PointsToPixels(-actualRect.Y));
-				int xofs = Math.Max(0, Helpers.PointsToPixels(-actualRect.X));
-				int ofsHeight = _prPages[page].wpfBmp.PixelHeight;
-				int ofsWidth = _prPages[page].wpfBmp.PixelWidth;
-
-				if(_emptyPixels == null || stride * _prPages[page].wpfBmp.PixelHeight > _emptyPixels.Length)
-					_emptyPixels = new byte[stride * _prPages[page].wpfBmp.PixelHeight];
-
-				if (yofs + ofsHeight > height)
-					ofsHeight = height - yofs;
-				if (xofs + ofsWidth > width)
-					ofsWidth = width - xofs;
-
-				_prPages[page].wpfBmp.WritePixels(new Int32Rect(0, 0, _prPages[page].wpfBmp.PixelWidth, _prPages[page].wpfBmp.PixelHeight), _emptyPixels , stride, 0);
-				_prPages[page].wpfBmp.WritePixels(new Int32Rect(xofs, yofs, ofsWidth, ofsHeight), b.Buffer, stride * height, stride, 0, 0);
-
-				//Draw bitmap to drawing surface
-				Helpers.DrawImageUnscaled(drawingContext, _prPages[page].wpfBmp, actualRect.X + Helpers.PixelsToPoints(xofs), actualRect.Y + Helpers.PixelsToPoints(yofs));
-
-				b.Dispose();
+				DrawFillForms(_prPages.CanvasBitmap, page, actualRect);
+				return true;
 			}
 			else
 			{
 				if (ShowLoadingIcon)
 					DrawLoadingIcon(drawingContext, page, actualRect);
-				StartInvalidateTimer();
+				return false;
 			}
 		}
 
@@ -2056,11 +2051,13 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </remarks>
 		protected virtual void DrawFillForms(PdfBitmap bmp, PdfPage page, Rect actualRect)
 		{
+			int x = Helpers.PointsToPixels(actualRect.X);
+			int y = Helpers.PointsToPixels(actualRect.Y);
 			int width = Helpers.PointsToPixels(actualRect.Width);
 			int height = Helpers.PointsToPixels(actualRect.Height);
 
 			//Draw fillforms to bitmap
-			page.RenderForms(bmp, 0, 0, width, height, PageRotation(page), RenderFlags);
+			page.RenderForms(bmp, x, y, width, height, PageRotation(page), RenderFlags);
 		}
 
 		/// <summary>
