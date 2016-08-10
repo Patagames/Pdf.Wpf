@@ -2,9 +2,9 @@
 using Patagames.Pdf.Net.EventArguments;
 using Patagames.Pdf.Net.Exceptions;
 using System;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
-using System.ComponentModel;
 using System.Windows.Threading;
 
 namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
@@ -15,11 +15,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 	public class PdfToolBarMain : PdfToolBar
 	{
 		#region Private fields
-		PdfPrint _print = null;
-		PrintProgress _printPogress = null;
-		bool _cancelationPending = false;
-		delegate void DelegateType1();
-		delegate void DelegateType2(PagePrintedEventArgs e);
+		delegate void ShowPrintDialogDelegate(System.Windows.Forms.PrintDialog dlg);
 		#endregion
 
 		#region Public events
@@ -29,25 +25,23 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 		public event EventHandler<EventArgs<string>> PasswordRequired = null;
 
 		/// <summary>
-		/// Occurs when the print operation has been started.
+		/// Occurs after an instance of PdfPrintDocument class is created and before printing is started.
 		/// </summary>
-		public event EventHandler PrintStarted = null;
-
-		/// <summary>
-		/// Occurs when the print operation has completed or has been canceled.
-		/// </summary>
-		public event EventHandler PrintCompleted = null;
-
-		/// <summary>
-		/// Occurs when the document's page gas been printed.
-		/// </summary>
-		public event EventHandler<PagePrintedEventArgs> PagePrinted = null;
-
-		/// <summary>
-		/// Occurs when the cancelation has been requested.
-		/// </summary>
-		public event EventHandler CancelationPending = null;
-
+		/// <remarks>
+		/// You can use this event to get access to PdfPrintDialog which is used in printing routine.
+		/// For example, the printing routine shows the standard dialog with printing progress. 
+		/// If you want to suppress it you can write in event handler the following:
+		/// <code>
+		/// private void ToolbarMain1_PdfPrintDocumentCreated(object sender, EventArgs&lt;PdfPrintDocument&gt; e)
+		/// {
+		///		e.Value.PrintController = new StandardPrintController();
+		/// }
+		/// </code>
+		/// <note type="note">
+		/// Because the PdfPrintDocumentis derived from standard System.Drawing.Printing.PrintDocument class you need to add the reference to System.Drawin assembly into your project.
+		/// </note>
+		/// </remarks>
+		public event EventHandler<EventArgs<PdfPrintDocument>> PdfPrintDocumentCreated = null;
 		#endregion
 
 		#region Public properties
@@ -116,9 +110,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			if (newValue != null)
 				SubscribePdfViewEvents(newValue);
 
-			if (oldValue != null && oldValue.Document != null && _print == null)
+			if (oldValue != null && oldValue.Document != null)
 				PdfViewer_DocumentClosed(this, EventArgs.Empty);
-			if (newValue != null && newValue.Document != null && _print == null)
+			if (newValue != null && newValue.Document != null)
 				PdfViewer_DocumentLoaded(this, EventArgs.Empty);
 		}
 		#endregion
@@ -174,99 +168,38 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 		{
 			if (PdfViewer.Document.FormFill != null)
 				PdfViewer.Document.FormFill.ForceToKillFocus();
-			item.IsEnabled = false;
-			StartPrint();
+
+			//Show standard print dialog
+			var printDoc = new PdfPrintDocument(PdfViewer.Document);
+			var dlg = new System.Windows.Forms.PrintDialog();
+			dlg.AllowCurrentPage = true;
+			dlg.AllowSomePages = true;
+			dlg.UseEXDialog = true;
+			dlg.Document = printDoc;
+			OnPdfPrinDocumentCreaded(new EventArgs<PdfPrintDocument>(printDoc));
+			ShowPrintDialogDelegate showprintdialog = ShowPrintDialog;
+			Dispatcher.BeginInvoke(showprintdialog, dlg);
 		}
 
 		/// <summary>
-		/// Occurs when the print operation has been started.
+		/// Occurs after an instance of PdfPrintDocument class is created and before printing is started.
 		/// </summary>
-		protected virtual void OnPrintStarted()
+		protected virtual void OnPdfPrinDocumentCreaded(EventArgs<PdfPrintDocument> e)
 		{
-			DelegateType1 method = OnPrintStartedRoutine;
-			Dispatcher.BeginInvoke(method);
-			//Dispatcher.BeginInvoke(new Action(()=>OnPrintStartedRoutine()));
-		}
-
-		/// <summary>
-		/// Occurs when the document's page gas been printed.
-		/// </summary>
-		/// <param name="e">An <see cref="PagePrintedEventArgs"/> that contains the event data.</param>
-		protected virtual void OnPagePrinted(PagePrintedEventArgs e)
-		{
-			DelegateType2 method = OnPagePrintedRoutine;
-			Dispatcher.BeginInvoke(method, e);
-			//Dispatcher.BeginInvoke(new Action(() => OnPagePrintedRoutine(e)));
-		}
-
-		/// <summary>
-		/// Occurs when the print operation has completed or has been canceled.
-		/// </summary>
-		protected virtual void OnPrintCompleted()
-		{
-			DelegateType1 method = OnPrintCompletedRoutine;
-			Dispatcher.BeginInvoke(method);
-			//Dispatcher.BeginInvoke(new Action(() => OnPrintCompletedRoutine()));
-		}
-
-
-		/// <summary>
-		/// Occurs when the print operation has completed or has been canceled.
-		/// </summary>
-		protected virtual void OnCancelationPending()
-		{
-			DelegateType1 method = OnCancelationPendingRoutine;
-			Dispatcher.BeginInvoke(method);
-			//Dispatcher.BeginInvoke(new Action(() => OnCancelationPendingRoutine()));
+			if (PdfPrintDocumentCreated != null)
+				PdfPrintDocumentCreated(this, e);
 		}
 		#endregion
 
-		#region Event handlers for PdfViewer.document and PdfPrint
-
-		private void PdfViewer_DocumentClosing(object sender, EventArguments.DocumentClosingEventArgs e)
-		{
-			e.Cancel = false;
-			StopPrint();
-		}
-
+		#region Event handlers for PdfViewer.document and PdfPrintDocument
 		private void PdfViewer_DocumentClosed(object sender, EventArgs e)
 		{
 			UpdateButtons();
-			StopPrint();
-			_print.PagePrinted -= Print_PagePrinted;
-			_print.PrintCompleted -= Print_PrintCompleted;
-			_print.PrintStarted -= Print_PrintStarted;
-			_print.CancelationPending -= Print_CancelationPending;
 		}
 
 		private void PdfViewer_DocumentLoaded(object sender, EventArgs e)
 		{
 			UpdateButtons();
-			_print = new PdfPrint(PdfViewer.Document);
-			_print.PagePrinted += Print_PagePrinted;
-			_print.PrintCompleted += Print_PrintCompleted;
-			_print.PrintStarted += Print_PrintStarted;
-			_print.CancelationPending += Print_CancelationPending;
-		}
-
-		private void Print_PrintCompleted(object sender, EventArgs e)
-		{
-			OnPrintCompleted();
-		}
-
-		private void Print_PrintStarted(object sender, EventArgs e)
-		{
-			OnPrintStarted();
-		}
-
-		private void Print_PagePrinted(object sender, PagePrintedEventArgs e)
-		{
-			OnPagePrinted(e);
-		}
-
-		private void Print_CancelationPending(object sender, EventArgs e)
-		{
-			OnCancelationPending();
 		}
 		#endregion
 
@@ -296,85 +229,21 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			newValue.DocumentClosed += PdfViewer_DocumentClosed;
 		}
 
-		private static void DoEvents()
+		private static void ShowPrintDialog(System.Windows.Forms.PrintDialog dlg)
 		{
-			DelegateType1 method = DoEventsInternal;
-			Application.Current.Dispatcher.Invoke(DispatcherPriority.Background, method);
-			//Application.Current.Dispatcher.Invoke(DispatcherPriority.Background, new Action(delegate { }));
-		}
-
-		private static void DoEventsInternal()
-		{
-
-		}
-
-		#endregion
-
-		#region Printing routines
-		private void StartPrint()
-		{
-			StopPrint();
-			_cancelationPending = false;
-			_print.ShowDialog(Window);
-		}
-
-		private void StopPrint()
-		{
-			if (_print == null)
-				return;
-			_print.End();
-			while (_print.IsBusy)
-				DoEvents();
-
-			var tsi = this.Items[1] as Button;
-			if (tsi != null)
-				tsi.IsEnabled = true;
-		}
-
-
-		private void OnPrintStartedRoutine()
-		{
-			if (PrintStarted != null)
-				PrintStarted(this, EventArgs.Empty);
-
-			_printPogress = new PrintProgress();
-			_printPogress.NeedStopPrinting += (s, e) => StopPrint();
-			_printPogress.Owner = Window;
-			OnPagePrintedRoutine(new PagePrintedEventArgs(0, PdfViewer.Document.Pages.Count));
-			_printPogress.Show();
-		}
-
-
-		private void OnPrintCompletedRoutine()
-		{
-			if (PrintCompleted != null)
-				PrintCompleted(this, EventArgs.Empty);
-
-			if (_printPogress != null)
+			if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
 			{
-				_printPogress.CloseWithoutPrompt();
-				_printPogress = null;
+				try
+				{
+					dlg.Document.Print();
+				}
+				catch (Win32Exception)
+				{
+					//Printing was canceled
+				}
 			}
 		}
 
-		private void OnPagePrintedRoutine(PagePrintedEventArgs e)
-		{
-			if (PagePrinted != null)
-				PagePrinted(this, e);
-
-			if (_printPogress != null && !_cancelationPending)
-				_printPogress.SetText(e.PageNumber + 1, e.TotalToPrint);
-		}
-
-		private void OnCancelationPendingRoutine()
-		{
-			if (CancelationPending != null)
-				CancelationPending(this, EventArgs.Empty);
-
-			_cancelationPending = true;
-			if (_printPogress != null)
-				_printPogress.SetText(Properties.Resources.txtPrintingStop);
-		}
 		#endregion
 	}
 }
