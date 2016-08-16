@@ -1736,7 +1736,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				int stride = _prPages.CanvasBitmap.Stride;
 				if (_canvasWpfBitmap == null || _canvasWpfBitmap.PixelWidth != cw || _canvasWpfBitmap.PixelHeight != ch)
 					_canvasWpfBitmap = new WriteableBitmap(cw, ch, Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
-				_canvasWpfBitmap.WritePixels(new Int32Rect(0, 0, cw, ch), _prPages.CanvasBitmap.Buffer, stride * ch, stride, 0, 0);
+				if (_prPages.CanvasSize.Width == cw && _prPages.CanvasSize.Height == ch)
+					_canvasWpfBitmap.WritePixels(new Int32Rect(0, 0, cw, ch), _prPages.CanvasBitmap.Buffer, stride * ch, stride, 0, 0);
+				else
+					allPagesAreRendered = true;
 
 				//Draw Canvas bitmap
 				Helpers.DrawImageUnscaled(drawingContext, _canvasWpfBitmap, 0, 0);
@@ -2296,6 +2299,20 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		#endregion
 
 		#region Private methods
+		private void OnScrollView()
+		{
+			if (Document != null)
+			{
+				_prPages.ReleaseCanvas();
+				int idx = CalcCurrentPage();
+				if (idx >= 0)
+				{
+					SetCurrentPage(idx);
+				}
+				InvalidateVisual();
+			}
+		}
+
 		private void ProcessLinkClicked(PdfLink pdfLink, PdfWebLink webLink)
 		{
 			var args = new PdfBeforeLinkClickedEventArgs(webLink, pdfLink);
@@ -2754,15 +2771,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 		private void OnScroll()
 		{
-			if (Document != null)
-			{
-				int idx = CalcCurrentPage();
-				if (idx >= 0)
-				{
-					SetCurrentPage(idx);
-				}
-				InvalidateVisual();
-			}
+			OnScrollView();
 		}
 
 		private Size CalcPages()
@@ -3281,7 +3290,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		#endregion
 
 		#endregion
-
 
 		#region Select tool
 		private void ProcessMouseDoubleClickForSelectTextTool(Point page_point, int page_index)

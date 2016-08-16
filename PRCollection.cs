@@ -9,13 +9,20 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 	internal class PRCollection : Dictionary<PdfPage, PRItem>
 	{
 		private PdfBitmap _canvasBitmap = null;
-		public int _waitTime;
-		public long _prevTicks;
+		private int _waitTime;
+		private long _prevTicks;
+
+		public PdfBitmap CanvasBitmap { get { return _canvasBitmap; } }
+		public Helpers.Int32Size CanvasSize { get; private set; }
+
 
 		public void InitCanvas(Helpers.Int32Size size)
 		{
 			if (_canvasBitmap == null)
+			{
 				_canvasBitmap = new PdfBitmap(size.Width, size.Height, true);
+				CanvasSize = size;
+			}
 			_waitTime = 70;
 			_prevTicks = DateTime.Now.Ticks;
 		}
@@ -29,9 +36,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				ReleasePage(i.Key);
 			this.Clear();
 		}
-
-		public PdfBitmap CanvasBitmap { get { return _canvasBitmap; } }
-
 
 		/// <summary>
 		/// Checks whether all visible pages are rendered
