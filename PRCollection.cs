@@ -29,12 +29,12 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 		public void ReleaseCanvas()
 		{
-			if (_canvasBitmap != null)
-				_canvasBitmap.Dispose();
-			_canvasBitmap = null;
 			foreach (var i in this)
 				ReleasePage(i.Key);
 			this.Clear();
+			if (_canvasBitmap != null)
+				_canvasBitmap.Dispose();
+			_canvasBitmap = null;
 		}
 
 		/// <summary>
