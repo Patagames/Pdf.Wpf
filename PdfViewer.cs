@@ -692,14 +692,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				{
 					_zoom = value;
 					UpdateDocLayout();
-
-					var rect = renderRects(CurrentIndex);
-					if (rect.Width != 0 && rect.Height != 0)
-					{
-						SetVerticalOffset(rect.Y);
-						SetHorizontalOffset(rect.X);
-					}
-
 					OnZoomChanged(EventArgs.Empty);
 				}
 			}
@@ -1077,11 +1069,20 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <param name="charIndex">Character index</param>
 		public void ScrollToChar(int charIndex)
 		{
+			ScrollToChar(CurrentIndex, charIndex);
+		}
+
+		/// <summary>
+		/// Scrolls the control view to the specified character on the specified page
+		/// </summary>
+		/// <param name="charIndex">Character index</param>
+		/// <param name="pageIndex">Zero-based index of a page.</param>
+		public void ScrollToChar(int pageIndex, int charIndex)
+		{
 			if (Document == null)
 				return;
 			if (Document.Pages.Count == 0)
 				return;
-			var pageIndex = CurrentIndex;
 			if (pageIndex < 0)
 				return;
 			var page = Document.Pages[pageIndex];
@@ -1096,7 +1097,31 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			if (ti.Rects == null || ti.Rects.Count == 0)
 				return;
 
+			if (pageIndex != CurrentIndex)
+				ScrollToPage(pageIndex);
 			var pt = PageToClient(pageIndex, new Point(ti.Rects[0].left, ti.Rects[0].top));
+			var curPt = _autoScrollPosition;
+			SetVerticalOffset(pt.Y - curPt.Y);
+			SetHorizontalOffset(pt.X - curPt.X);
+		}
+
+		/// <summary>
+		/// Scrolls the control view to the specified point on the specified page
+		/// </summary>
+		/// <param name="pageIndex">Zero-based index of a page.</param>
+		/// <param name="pagePoint">Point on the page in the page's coordinate system</param>
+		public void ScrollToPoint(int pageIndex, Point pagePoint)
+		{
+			if (Document == null)
+				return;
+			int count = Document.Pages.Count;
+			if (count == 0)
+				return;
+			if (pageIndex < 0 || pageIndex > count - 1)
+				return;
+
+			ScrollToPage(pageIndex);
+			var pt = PageToClient(pageIndex, pagePoint);
 			var curPt = _autoScrollPosition;
 			SetVerticalOffset(pt.Y - curPt.Y);
 			SetHorizontalOffset(pt.X - curPt.X);
@@ -1595,20 +1620,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 		}
 
-
-		/// <summary>
-		/// Raises the System.Windows.FrameworkElement.SizeChanged event, using the specified
-		/// information as part of the eventual event data.
-		/// </summary>
-		/// <param name="sizeInfo">Details of the old and new size involved in the change.</param>
-		protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
-		{
-			if (ViewMode != ViewModes.SinglePage)
-				ScrollToPage(CurrentIndex);
-
-			base.OnRenderSizeChanged(sizeInfo);
-		}
-
 		/// <summary>
 		/// Called to remeasure a control.
 		/// </summary>
@@ -1619,7 +1630,18 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			if (Document != null)
 			{
+				var pagePoint = new Point(0, 0);
+				bool needToScroll = false;
+				if (_renderRects != null && (ActualWidth> 0 && ActualHeight>0))
+				{
+					pagePoint = ClientToPage(CurrentIndex, new Point(0, 0));
+					needToScroll = true;
+				}
+
 				Size size = CalcPages();
+
+				if (needToScroll)
+					ScrollToPoint(CurrentIndex, pagePoint);
 
 				if (size != _extent)
 				{
@@ -3393,10 +3415,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				return;
 			var yOffs = mouse_point.Y - _panToolInitialMousePosition.Y;
 			var xOffs = mouse_point.X - _panToolInitialMousePosition.X;
-			//_autoScrollPosition = new Point(-_panToolInitialScrollPosition.X - xOffs, -_panToolInitialScrollPosition.Y - yOffs);
 			SetVerticalOffset(-_panToolInitialScrollPosition.Y - yOffs);
 			SetHorizontalOffset(-_panToolInitialScrollPosition.X - xOffs);
-			//Scrol
 		}
 
 		private void ProcessMouseUpPanTool(Point mouse_point)
