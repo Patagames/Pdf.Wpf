@@ -1395,10 +1395,29 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		public void UpdateDocLayout()
 		{
 			_prPages.ReleaseCanvas(); //something changed. Release canvas
-			double w = ActualWidth;
-			double h = ActualHeight;
-			if (w > 0 && h > 0)
-				MeasureOverride(new Size(w, h));
+
+			if (Document == null)
+				return;
+
+			var pagePoint = new Point(0, 0);
+			bool needToScroll = false;
+			if (_renderRects != null)
+			{
+				pagePoint = ClientToPage(CurrentIndex, new Point(0, 0));
+				needToScroll = true;
+			}
+
+			Size size = CalcPages();
+
+			if (size.Width != 0 && size.Height != 0)
+			{
+				_extent = size;
+				_viewport = new Size(ActualWidth, ActualHeight);
+				if (ScrollOwner != null)
+					ScrollOwner.InvalidateScrollInfo();
+			}
+			if (needToScroll)
+				ScrollToPoint(CurrentIndex, pagePoint);
 			InvalidateVisual();
 		}
 
@@ -1559,6 +1578,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			_renderRects = null;
 			_document = null;
 			_onstartPageIndex = 0;
+			_extent = new Size(0, 0);
 			if (ScrollOwner != null)
 				ScrollOwner.InvalidateScrollInfo();
 			InvalidateVisual();
@@ -1621,63 +1641,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		}
 
 		/// <summary>
-		/// Called to remeasure a control.
+		/// Raises the System.Windows.FrameworkElement.SizeChanged event, using the specified information as part of the eventual event data.
 		/// </summary>
-		/// <param name="availableSize">The maximum size that the method can return.</param>
-		/// <returns>The size of the control, up to the maximum specified by availableSize.</returns>
-		/// <remarks>The default control measurement only measures the first visual child.</remarks>
-		protected override Size MeasureOverride(Size availableSize)
+		/// <param name="sizeInfo">Details of the old and new size involved in the change.</param>
+		protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
 		{
-			if (Document != null)
-			{
-				var pagePoint = new Point(0, 0);
-				bool needToScroll = false;
-				if (_renderRects != null && (ActualWidth> 0 && ActualHeight>0))
-				{
-					pagePoint = ClientToPage(CurrentIndex, new Point(0, 0));
-					needToScroll = true;
-				}
-
-				Size size = CalcPages();
-
-				if (needToScroll)
-					ScrollToPoint(CurrentIndex, pagePoint);
-
-				if (size != _extent)
-				{
-					_extent = size;
-					if (ScrollOwner != null)
-						ScrollOwner.InvalidateScrollInfo();
-				}
-
-				if (availableSize != _viewport)
-				{
-					_viewport = availableSize;
-					if (ScrollOwner != null)
-						ScrollOwner.InvalidateScrollInfo();
-				}
-			}
-
-			if (double.IsInfinity(availableSize.Width)
-				|| double.IsInfinity(availableSize.Height)
-				)
-			{
-				return base.MeasureOverride(availableSize);
-			}
-			return availableSize;
+			UpdateDocLayout();
+			base.OnRenderSizeChanged(sizeInfo);
 		}
 
-		/// <summary>
-		/// Called to arrange and size the content of a Control object.
-		/// </summary>
-		/// <param name="finalSize">The computed size that is used to arrange the content.</param>
-		/// <returns>The size of the control.</returns>
-		/// <remarks>The default control arrangement arranges only the first visual child. No transforms are applied.</remarks>
-		protected override Size ArrangeOverride(Size finalSize)
-		{
-			MeasureOverride(finalSize);
-			return finalSize;
-		}
 
 		/// <summary>
 		/// Invoked when an unhandled System.Windows.Input.Mouse.MouseLeave attached event
@@ -1718,10 +1690,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					return;
 
 				//Initialize the Canvas bitmap
-				_prPages.InitCanvas(new Helpers.Int32Size(){ Width = cw, Height = ch });
+				_prPages.InitCanvas(new Helpers.Int32Size() { Width = cw, Height = ch });
 				bool allPagesAreRendered = true;
 
-				//starting draw pages in vertical or horizontal modes
+				//Drawing PART 1. Page content into canvas and some other things
 				for (int i = _startPage; i <= _endPage; i++)
 				{
 					//Actual coordinates of the page with the scroll
@@ -1736,6 +1708,24 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					DrawPageBackColor(drawingContext, actualRect.X, actualRect.Y, actualRect.Width, actualRect.Height);
 					//Draw page
 					allPagesAreRendered &= DrawPage(drawingContext, Document.Pages[i], actualRect);
+					//Calc coordinates for page separator
+					CalcPageSeparator(actualRect, i, ref separator);
+				}
+
+				//Draw canvas
+				allPagesAreRendered = DrawCanvasToContext(drawingContext, cw, ch, allPagesAreRendered);
+
+				//Draw pages separators
+				DrawPageSeparators(drawingContext, ref separator);
+
+				//Drawing PART 2.
+				for (int i = _startPage; i <= _endPage; i++)
+				{
+					//Actual coordinates of the page with the scroll
+					Rect actualRect = CalcActualRect(i);
+					if (!actualRect.IntersectsWith(ClientRect))
+						continue; //Page is invisible. Skip it
+
 					//Draw page border
 					DrawPageBorder(drawingContext, actualRect);
 					//Draw fillforms selection
@@ -1747,24 +1737,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					DrawTextSelection(drawingContext, selTmp, i);
 					//Draw current page highlight
 					DrawCurrentPageHighlight(drawingContext, i, actualRect);
-					//Calc coordinates for page separator
-					CalcPageSeparator(actualRect, i, ref separator);
 				}
-
-				//Draw pages separators
-				DrawPageSeparators(drawingContext, ref separator);
-
-				//Convert PdfBitmap into Wpf WriteableBitmap
-				int stride = _prPages.CanvasBitmap.Stride;
-				if (_canvasWpfBitmap == null || _canvasWpfBitmap.PixelWidth != cw || _canvasWpfBitmap.PixelHeight != ch)
-					_canvasWpfBitmap = new WriteableBitmap(cw, ch, Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
-				if (_prPages.CanvasSize.Width == cw && _prPages.CanvasSize.Height == ch)
-					_canvasWpfBitmap.WritePixels(new Int32Rect(0, 0, cw, ch), _prPages.CanvasBitmap.Buffer, stride * ch, stride, 0, 0);
-				else
-					allPagesAreRendered = true;
-
-				//Draw Canvas bitmap
-				Helpers.DrawImageUnscaled(drawingContext, _canvasWpfBitmap, 0, 0);
 
 				if (!allPagesAreRendered)
 					StartInvalidateTimer();
@@ -2317,10 +2290,25 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			for (int sep = 0; sep < separator.Count; sep += 2)
 				drawingContext.DrawLine(_pageSeparatorColorPen, separator[sep], separator[sep + 1]);
 		}
-
 		#endregion
 
 		#region Private methods
+		private bool DrawCanvasToContext(DrawingContext drawingContext, int cw, int ch, bool allPagesAreRendered)
+		{
+			//Convert PdfBitmap into Wpf WriteableBitmap
+			int stride = _prPages.CanvasBitmap.Stride;
+			if (_canvasWpfBitmap == null || _canvasWpfBitmap.PixelWidth != cw || _canvasWpfBitmap.PixelHeight != ch)
+				_canvasWpfBitmap = new WriteableBitmap(cw, ch, Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
+			if (_prPages.CanvasSize.Width == cw && _prPages.CanvasSize.Height == ch)
+				_canvasWpfBitmap.WritePixels(new Int32Rect(0, 0, cw, ch), _prPages.CanvasBitmap.Buffer, stride * ch, stride, 0, 0);
+			else
+				allPagesAreRendered = true;
+
+			//Draw Canvas bitmap
+			Helpers.DrawImageUnscaled(drawingContext, _canvasWpfBitmap, 0, 0);
+			return allPagesAreRendered;
+		}
+
 		private void OnScrollView()
 		{
 			if (Document != null)
