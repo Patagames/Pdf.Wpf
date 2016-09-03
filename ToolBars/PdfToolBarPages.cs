@@ -29,7 +29,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			var btn = CreateButton("btnFirstPage",
 				Properties.Resources.btnFirstPageText,
 				Properties.Resources.btnFirstPageToolTipText,
-				"toBegin.png",
+                CreateUriToResource("toBegin.png"),
 				btn_FirstPageClick,
 				16,16, ImageTextType.ImageOnly);
 			this.Items.Add(btn);
@@ -37,7 +37,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			btn = CreateButton("btnPreviousPage",
 				Properties.Resources.btnPreviousPageText,
 				Properties.Resources.btnPreviousPageToolTipText,
-				"toLeft.png",
+                CreateUriToResource("toLeft.png"),
 				btn_PreviousPageClick,
 				16, 16, ImageTextType.ImageOnly);
 			this.Items.Add(btn);
@@ -48,7 +48,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			btn = CreateButton("btnNextPage",
 				Properties.Resources.btnNextPageText,
 				Properties.Resources.btnNextPageToolTipText,
-				"toRight.png",
+                CreateUriToResource("toRight.png"),
 				btn_NextPageClick,
 				16, 16, ImageTextType.ImageOnly);
 			this.Items.Add(btn);
@@ -56,7 +56,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			btn = CreateButton("btnLastPage",
 				Properties.Resources.btnLastPageText,
 				Properties.Resources.btnLastPageToolTipText,
-				"toEnd.png",
+                CreateUriToResource("toEnd.png"),
 				btn_LastPageClick,
 				16, 16, ImageTextType.ImageOnly);
 			this.Items.Add(btn);

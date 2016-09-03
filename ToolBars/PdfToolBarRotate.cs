@@ -18,14 +18,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			var btn = CreateButton("btnRotateLeft",
 				Properties.Resources.btnRotateLeftText,
 				Properties.Resources.btnRotateLeftToolTipText,
-				"rotateLeft.png",
+                CreateUriToResource("rotateLeft.png"),
 				btn_RotateLeftClick);
 			this.Items.Add(btn);
 
 			btn = CreateButton("btnRotateRight",
 				Properties.Resources.btnRotateRightText,
 				Properties.Resources.btnRotateRightToolTipText,
-				"rotateRight.png",
+                CreateUriToResource("rotateRight.png"),
 				btn_RotateRightClick);
 			this.Items.Add(btn);
 		}

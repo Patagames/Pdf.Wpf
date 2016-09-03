@@ -18,14 +18,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			var btn = CreateButton("btnSelectAll",
 				Properties.Resources.btnSelectAllText,
 				Properties.Resources.btnSelectAllToolTipText,
-				"selectAll.png",
+                CreateUriToResource("selectAll.png"),
 				btn_SelectAllClick);
 			this.Items.Add(btn);
 
 			btn = CreateButton("btnCopy",
 				Properties.Resources.btnCopyText,
 				Properties.Resources.btnCopyToolTipText,
-				"textCopy.png",
+                CreateUriToResource("textCopy.png"),
 				btn_CopyClick);
 			this.Items.Add(btn);
 		}

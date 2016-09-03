@@ -71,14 +71,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			var btn = CreateButton("btnOpenDoc",
 				Properties.Resources.btnOpenText,
 				Properties.Resources.btnOpenToolTipText,
-				"docOpen.png",
+                CreateUriToResource("docOpen.png"),
 				btn_OpenDocClick);
 			this.Items.Add(btn);
 
 			btn = CreateButton("btnPrintDoc",
 				Properties.Resources.btnPrintText,
 				Properties.Resources.btnPrintToolTipText,
-				"docPrint.png",
+                CreateUriToResource("docPrint.png"),
 				btn_PrintDocClick);
 			this.Items.Add(btn);
 		}

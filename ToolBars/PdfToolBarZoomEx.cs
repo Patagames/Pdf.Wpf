@@ -191,7 +191,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			btn = CreateButton("btnZoomExOut",
 				Properties.Resources.btnZoomOutText,
 				Properties.Resources.btnZoomOutToolTipText,
-				"zoomExOut.png",
+                CreateUriToResource("zoomExOut.png"),
 				btn_ZoomExOutClick,
 				16, 16, ImageTextType.ImageOnly);
 			btn.Padding = new Thickness(0);
@@ -203,7 +203,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			btn = CreateButton("btnZoomExIn",
 				Properties.Resources.btnZoomInText,
 				Properties.Resources.btnZoomInToolTipText,
-				"zoomExIn.png",
+                CreateUriToResource("zoomExIn.png"),
 				btn_ZoomExInClick,
 				16, 16, ImageTextType.ImageOnly);
 			btn.Padding = new Thickness(0);

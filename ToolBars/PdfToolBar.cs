@@ -97,19 +97,29 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			UpdateButtons();
 		}
 
-		/// <summary>
-		/// Create a new instance of Button class with the specified name that displays the specified text and image and that raises the Click event.
-		/// </summary>
-		/// <param name="name">The name of the Button.</param>
-		/// <param name="text">The text to display on the Button.</param>
-		/// <param name="toolTipText">Specify the text that appears as a ToolTip for a control.</param>
-		/// <param name="imgResName">The image name in resources to display on the Button.</param>
-		/// <param name="onClick">An event handler that raises the Click event.</param>
-		/// <param name="imgWidth">Image width</param>
-		/// <param name="imgHeight">Image height</param>
-		/// <param name="imageTextType">Image and text layout</param>
-		/// <returns>Newly created Button</returns>
-		protected virtual Button CreateButton(string name, string text, string toolTipText, string imgResName, RoutedEventHandler onClick, int imgWidth=32, int imgHeight=32, ImageTextType imageTextType = ImageTextType.ImageBeforeText)
+        /// <summary>
+        /// Create the Uri to the resource with the specified name.
+        /// </summary>
+        /// <param name="resName">Resource's name.</param>
+        /// <returns>Uri to the resource.</returns>
+        protected virtual Uri CreateUriToResource(string resName)
+        {
+            return new Uri("pack://application:,,,/Patagames.Pdf.Wpf;component/Resources/" + resName, UriKind.Absolute);
+        }
+
+        /// <summary>
+        /// Create a new instance of Button class with the specified name that displays the specified text and image and that raises the Click event.
+        /// </summary>
+        /// <param name="name">The name of the Button.</param>
+        /// <param name="text">The text to display on the Button.</param>
+        /// <param name="toolTipText">Specify the text that appears as a ToolTip for a control.</param>
+        /// <param name="imgRes">The image to display on the Button.</param>
+        /// <param name="onClick">An event handler that raises the Click event.</param>
+        /// <param name="imgWidth">Image width</param>
+        /// <param name="imgHeight">Image height</param>
+        /// <param name="imageTextType">Image and text layout</param>
+        /// <returns>Newly created Button</returns>
+        protected virtual Button CreateButton(string name, string text, string toolTipText, Uri imgRes, RoutedEventHandler onClick, int imgWidth=32, int imgHeight=32, ImageTextType imageTextType = ImageTextType.ImageBeforeText)
 		{
 			Button btn = new Button();
 			btn.Name = name;
@@ -121,10 +131,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			Image img = null;
 			TextBlock txt = null;
 
-			if (imgResName != null)
+			if (imgRes != null)
 				img = new Image()
 				{
-					Source = new BitmapImage(new Uri("pack://application:,,,/Patagames.Pdf.Wpf;component/Resources/" + imgResName, UriKind.Absolute)),
+					Source = new BitmapImage(imgRes),
 					Stretch = System.Windows.Media.Stretch.Fill,
 					Width = imgWidth,
 					Height = imgHeight,

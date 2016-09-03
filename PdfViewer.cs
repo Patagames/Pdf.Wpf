@@ -1395,9 +1395,12 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		public void UpdateDocLayout()
 		{
 			_prPages.ReleaseCanvas(); //something changed. Release canvas
-
+			_viewport = new Size(ActualWidth, ActualHeight);
 			if (Document == null)
+			{
+				InvalidateVisual();
 				return;
+			}
 
 			var pagePoint = new Point(0, 0);
 			bool needToScroll = false;

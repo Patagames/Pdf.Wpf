@@ -36,7 +36,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			var btn = CreateButton("btnZoomOut",
 				Properties.Resources.btnZoomOutText,
 				Properties.Resources.btnZoomOutToolTipText,
-				"zoomOut.png",
+                CreateUriToResource("zoomOut.png"),
 				btn_ZoomOutClick);
 			this.Items.Add(btn);
 
@@ -46,7 +46,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			btn = CreateButton("btnZoomIn",
 				Properties.Resources.btnZoomInText,
 				Properties.Resources.btnZoomInToolTipText,
-				"zoomIn.png",
+                CreateUriToResource("zoomIn.png"),
 				btn_ZoomInClick);
 			this.Items.Add(btn);
 
