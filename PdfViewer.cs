@@ -74,6 +74,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		private System.Windows.Threading.DispatcherTimer _invalidateTimer = null;
 
 		WriteableBitmap _canvasWpfBitmap = null;
+		WriteableBitmap _formsWpfBitmap = null;
 		#endregion
 
 		#region Events
@@ -752,8 +753,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				{
 					_viewMode = value;
 					UpdateDocLayout();
-					if(_renderRects!= null)
-						MakeVisible(null, _renderRects[CurrentIndex]);
 					OnViewModeChanged(EventArgs.Empty);
 				}
 			}
@@ -1008,6 +1007,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			{
 				if (_useProgressiveRender != value)
 				{
+					UpdateDocLayout();
 					_useProgressiveRender = value;
 					OnUseProgressiveRenderChanged(EventArgs.Empty);
 				}
@@ -1050,7 +1050,11 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 			if (ViewMode == ViewModes.SinglePage)
 			{
-				SetCurrentPage(index);
+				if (index != CurrentIndex)
+				{
+					SetCurrentPage(index);
+					_prPages.ReleaseCanvas();
+				}
 				InvalidateVisual();
 			}
 			else
@@ -1097,8 +1101,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			if (ti.Rects == null || ti.Rects.Count == 0)
 				return;
 
-			if (pageIndex != CurrentIndex)
-				ScrollToPage(pageIndex);
+			ScrollToPage(pageIndex);
 			var pt = PageToClient(pageIndex, new Point(ti.Rects[0].left, ti.Rects[0].top));
 			var curPt = _autoScrollPosition;
 			SetVerticalOffset(pt.Y - curPt.Y);
@@ -1429,8 +1432,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </summary>
 		public void ClearRenderBuffer()
 		{
-			if (_prPages != null)
-				_prPages.Clear();
+			_prPages.ReleaseCanvas();
 		}
 
 		/// <summary>
@@ -1710,7 +1712,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					//Draw page background
 					DrawPageBackColor(drawingContext, actualRect.X, actualRect.Y, actualRect.Width, actualRect.Height);
 					//Draw page
-					allPagesAreRendered &= DrawPage(drawingContext, Document.Pages[i], actualRect);
+					bool isPageDrawn = DrawPage(drawingContext, Document.Pages[i], actualRect);
+					allPagesAreRendered &= isPageDrawn;
+
+					if (isPageDrawn)  //Draw fill forms
+						DrawFillForms(_prPages.FormsBitmap, Document.Pages[i], actualRect);
+					else if (ShowLoadingIcon) //or loading icons
+						DrawLoadingIcon(drawingContext, Document.Pages[i], actualRect);
+					
 					//Calc coordinates for page separator
 					CalcPageSeparator(actualRect, i, ref separator);
 				}
@@ -1744,7 +1753,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 				if (!allPagesAreRendered)
 					StartInvalidateTimer();
-				else
+				else if (!UseProgressiveRender)
 					_prPages.ReleaseCanvas();
 
 				_selectedRectangles.Clear();
@@ -2004,6 +2013,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <item><see cref="DrawPageSeparators"/></item>
 		/// </list>
 		/// </remarks>
+		/// <returns>true if page was rendered; false if any error is occurred or page is still rendering.</returns>
 		protected virtual bool DrawPage(DrawingContext drawingContext, PdfPage page, Rect actualRect)
 		{
 			if (actualRect.Width <= 0 || actualRect.Height <= 0)
@@ -2016,18 +2026,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			var pageRect = new Int32Rect(
 				Helpers.PointsToPixels(actualRect.X), 
 				Helpers.PointsToPixels(actualRect.Y), width, height);
-			if (_prPages.RenderPage(page, pageRect, PageRotation(page), RenderFlags, UseProgressiveRender))
-			{
-				//Draw fill forms
-				DrawFillForms(_prPages.CanvasBitmap, page, actualRect);
-				return true;
-			}
-			else
-			{
-				if (ShowLoadingIcon)
-					DrawLoadingIcon(drawingContext, page, actualRect);
-				return false;
-			}
+			return _prPages.RenderPage(page, pageRect, PageRotation(page), RenderFlags, UseProgressiveRender);
 		}
 
 		/// <summary>
@@ -2299,24 +2298,31 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		private bool DrawCanvasToContext(DrawingContext drawingContext, int cw, int ch, bool allPagesAreRendered)
 		{
 			//Convert PdfBitmap into Wpf WriteableBitmap
-			int stride = _prPages.CanvasBitmap.Stride;
+			int canvasStride = _prPages.CanvasBitmap.Stride;
+			int formsStride = _prPages.FormsBitmap.Stride;
 			if (_canvasWpfBitmap == null || _canvasWpfBitmap.PixelWidth != cw || _canvasWpfBitmap.PixelHeight != ch)
+			{
 				_canvasWpfBitmap = new WriteableBitmap(cw, ch, Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
+				_formsWpfBitmap = new WriteableBitmap(cw, ch, Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
+			}
 			if (_prPages.CanvasSize.Width == cw && _prPages.CanvasSize.Height == ch)
-				_canvasWpfBitmap.WritePixels(new Int32Rect(0, 0, cw, ch), _prPages.CanvasBitmap.Buffer, stride * ch, stride, 0, 0);
+			{
+				_canvasWpfBitmap.WritePixels(new Int32Rect(0, 0, cw, ch), _prPages.CanvasBitmap.Buffer, canvasStride * ch, canvasStride, 0, 0);
+				_formsWpfBitmap.WritePixels(new Int32Rect(0, 0, cw, ch), _prPages.FormsBitmap.Buffer, formsStride * ch, formsStride, 0, 0);
+			}
 			else
 				allPagesAreRendered = true;
 
 			//Draw Canvas bitmap
 			Helpers.DrawImageUnscaled(drawingContext, _canvasWpfBitmap, 0, 0);
+			Helpers.DrawImageUnscaled(drawingContext, _formsWpfBitmap, 0, 0);
 			return allPagesAreRendered;
 		}
 
-		private void OnScrollView()
+		private void CalcAndSetCurrentPage()
 		{
 			if (Document != null)
 			{
-				_prPages.ReleaseCanvas();
 				int idx = CalcCurrentPage();
 				if (idx >= 0)
 				{
@@ -2423,7 +2429,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 		private Point GetRenderLocation(Size size)
 		{
-			var clientSize = ClientRect;
+			Size clientSize = ClientRect.Size;
+			if(ScrollOwner!= null)
+			{
+				clientSize = new Size(
+					ScrollOwner.ActualWidth - System.Windows.Forms.SystemInformation.VerticalScrollBarWidth,
+					ScrollOwner.ActualHeight - System.Windows.Forms.SystemInformation.HorizontalScrollBarHeight
+					);
+			}
+
 			double xleft = 0 + Padding.Left;
 			double ytop = 0 + Padding.Top;
 			double xcenter = (clientSize.Width - Helpers.ThicknessHorizontal(Padding) - size.Width) / 2 + Padding.Left;
@@ -2455,6 +2469,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 		private Size GetRenderSize(int index)
 		{
+			Size clientSize = ClientRect.Size;
+			if (ScrollOwner != null)
+			{
+				clientSize = new Size(
+					ScrollOwner.ActualWidth - System.Windows.Forms.SystemInformation.VerticalScrollBarWidth,
+					ScrollOwner.ActualHeight - System.Windows.Forms.SystemInformation.HorizontalScrollBarHeight
+					);
+			}
+
 			double w, h;
 			Pdfium.FPDF_GetPageSizeByIndex(Document.Handle, index, out w, out h);
 
@@ -2462,7 +2485,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			w = w / 72.0 * 96;
 			h = h / 72.0 * 96;
 
-			var clientSize = ClientRect;
 			double nw = clientSize.Width;
 			double nh = h * nw / w;
 
@@ -2782,11 +2804,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			return false;
 		}
 
-		private void OnScroll()
-		{
-			OnScrollView();
-		}
-
 		private Size CalcPages()
 		{
 			switch (ViewMode)
@@ -3003,6 +3020,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 		void Pages_CurrentPageChanged(object sender, EventArgs e)
 		{
+			if (ViewMode == ViewModes.SinglePage)
+				_prPages.ReleaseCanvas();
 			OnCurrentPageChanged(EventArgs.Empty);
 			InvalidateVisual();
 		}
@@ -3146,12 +3165,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				}
 			}
 
+			var prev = _autoScrollPosition.Y;
 			_autoScrollPosition.Y = -offset;
+			CalcAndSetCurrentPage();
+			if (prev != _autoScrollPosition.Y)
+				_prPages.ReleaseCanvas();
 
 			if (ScrollOwner != null)
 				ScrollOwner.InvalidateScrollInfo();
-
-			OnScroll();
 		}
 
 		/// <summary>
@@ -3172,12 +3193,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				}
 			}
 
+			var prev = _autoScrollPosition.X;
 			_autoScrollPosition.X = -offset;
+			CalcAndSetCurrentPage();
+			if (prev != _autoScrollPosition.X)
+				_prPages.ReleaseCanvas();
 
 			if (ScrollOwner != null)
 				ScrollOwner.InvalidateScrollInfo();
-
-			OnScroll();
 		}
 
 		/// <summary>
