@@ -83,13 +83,16 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			if (tsi != null)
 				tsi.IsEnabled = (PdfViewer != null) && (PdfViewer.Document != null);
 
-			if (PdfViewer == null || PdfViewer.Document == null)
-				return;
-
 			var tbi = this.Items[2] as TextBox;
 			if (tbi == null)
 				return;
-			tbi.Text = string.Format("{0} / {1}", PdfViewer.Document.Pages.CurrentIndex + 1, PdfViewer.Document.Pages.Count);
+			tbi.IsEnabled = (PdfViewer != null) && (PdfViewer.Document != null);
+
+
+			if (PdfViewer == null || PdfViewer.Document == null)
+				tbi.Text = "";
+			else
+				tbi.Text = string.Format("{0} / {1}", PdfViewer.Document.Pages.CurrentIndex + 1, PdfViewer.Document.Pages.Count);
 		}
 
 		/// <summary>
@@ -225,6 +228,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 		#region Private methods
 		private void UnsubscribePdfViewEvents(PdfViewer oldValue)
 		{
+			oldValue.AfterDocumentChanged -= PdfViewer_SomethingChanged;
 			oldValue.DocumentLoaded -= PdfViewer_SomethingChanged;
 			oldValue.DocumentClosed -= PdfViewer_SomethingChanged;
 			oldValue.CurrentPageChanged -= PdfViewer_SomethingChanged;
@@ -232,6 +236,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 
 		private void SubscribePdfViewEvents(PdfViewer newValue)
 		{
+			newValue.AfterDocumentChanged += PdfViewer_SomethingChanged;
 			newValue.DocumentLoaded += PdfViewer_SomethingChanged;
 			newValue.DocumentClosed += PdfViewer_SomethingChanged;
 			newValue.CurrentPageChanged += PdfViewer_SomethingChanged;

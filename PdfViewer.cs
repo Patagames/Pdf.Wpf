@@ -3,6 +3,7 @@ using Patagames.Pdf.Net.EventArguments;
 using Patagames.Pdf.Net.Exceptions;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -75,9 +76,28 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 		WriteableBitmap _canvasWpfBitmap = null;
 		WriteableBitmap _formsWpfBitmap = null;
+		private bool _loadedByViewer = true;
+
+		private struct CaptureInfo
+		{
+			public PdfForms forms;
+			public ISynchronizeInvoke sync;
+			public int color;
+		}
+		private CaptureInfo _externalDocCapture;
 		#endregion
 
 		#region Events
+		/// <summary>
+		/// Occurs whenever the Document property is changed.
+		/// </summary>
+		public event EventHandler AfterDocumentChanged;
+
+		/// <summary>
+		/// Occurs immediately before the document property would be changed.
+		/// </summary>
+		public event EventHandler<DocumentClosingEventArgs> BeforeDocumentChanged;
+
 		/// <summary>
 		/// Occurs whenever the document loads.
 		/// </summary>
@@ -218,14 +238,33 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 		#region Event raises
 		/// <summary>
+		/// Raises the <see cref="AfterDocumentChanged"/> event.
+		/// </summary>
+		/// <param name="e">An System.EventArgs that contains the event data.</param>
+		protected virtual void OnAfterDocumentChanged(EventArgs e)
+		{
+			if (AfterDocumentChanged != null)
+				AfterDocumentChanged(this, e);
+		}
+
+		/// <summary>
+		/// Raises the <see cref="BeforeDocumentChanged"/> event.
+		/// </summary>
+		/// <param name="e">An System.EventArgs that contains the event data.</param>
+		/// <returns>True if changing should be canceled, False otherwise</returns>
+		protected virtual bool OnBeforeDocumentChanged(DocumentClosingEventArgs e)
+		{
+			if (BeforeDocumentChanged != null)
+				BeforeDocumentChanged(this, e);
+			return e.Cancel;
+		}
+
+		/// <summary>
 		/// Raises the <see cref="DocumentLoaded"/> event.
 		/// </summary>
 		/// <param name="e">An System.EventArgs that contains the event data.</param>
 		protected virtual void OnDocumentLoaded(EventArgs e)
 		{
-			if (Document != null && Document.FormFill != null)
-				Document.FormFill.SetHighlightColorEx(FormFieldTypes.FPDF_FORMFIELD_UNKNOWN, Helpers.ToArgb(_formHighlightColor));
-
 			if (DocumentLoaded != null)
 				DocumentLoaded(this, e);
 		}
@@ -510,28 +549,53 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 			set
 			{
-				if (!System.ComponentModel.DesignerProperties.GetIsInDesignMode(this) && !AllowSetDocument && value != null)
-					throw new ArgumentException(Patagames.Pdf.Net.Controls.Wpf.Properties.Resources.err0001, "AllowSetDocument");
-				if (_document != value)
-				{
-					Pdfium.FPDF_ShowSplash(true);
-					CloseDocument();
-					_document = value;
-					UpdateDocLayout();
-					if (_document != null)
+					if (_document != value)
 					{
-						_document.Pages.CurrentPageChanged += Pages_CurrentPageChanged;
-						_document.Pages.PageInserted += Pages_PageInserted;
-						_document.Pages.PageDeleted += Pages_PageDeleted;
-						_document.Pages.ProgressiveRender += Pages_ProgressiveRender;
-						SetCurrentPage(_onstartPageIndex);
-						if (_document.Pages.Count > 0)
-							ScrollToPage(_onstartPageIndex);
-						OnDocumentLoaded(EventArgs.Empty);
+						if (OnBeforeDocumentChanged(new DocumentClosingEventArgs()))
+							return;
+
+						if (_document != null && _loadedByViewer)
+						{
+							//we need to close the previous document if it was loaded by viewer
+							if (OnDocumentClosing(new DocumentClosingEventArgs()))
+								return; //the closing was canceled;
+							_document.Dispose();
+							_document = null;
+							OnDocumentClosed(EventArgs.Empty);
+						}
+						else if (_document != null && !_loadedByViewer)
+						{
+							_document.Pages.CurrentPageChanged -= Pages_CurrentPageChanged;
+							_document.Pages.PageInserted -= Pages_PageInserted;
+							_document.Pages.PageDeleted -= Pages_PageDeleted;
+							_document.Pages.ProgressiveRender -= Pages_ProgressiveRender;
+						}
+						_extent = new Size(0, 0);
+						_selectInfo = new SelectInfo() { StartPage = -1 };
+						_highlightedText.Clear();
+						_onstartPageIndex = 0;
+						_renderRects = null;
+						_loadedByViewer = false;
+						Pdfium.FPDF_ShowSplash(true);
+						ReleaseFillForms(_externalDocCapture);
+						_document = value;
+						UpdateDocLayout();
+						if (_document != null)
+						{
+							if (_document.FormFill != _fillForms)
+								_externalDocCapture = CaptureFillForms(_document.FormFill);
+							_document.Pages.CurrentPageChanged += Pages_CurrentPageChanged;
+							_document.Pages.PageInserted += Pages_PageInserted;
+							_document.Pages.PageDeleted += Pages_PageDeleted;
+							_document.Pages.ProgressiveRender += Pages_ProgressiveRender;
+							SetCurrentPage(_onstartPageIndex);
+							if (_document.Pages.Count > 0)
+								ScrollToPage(_onstartPageIndex);
+						}
+						OnAfterDocumentChanged(EventArgs.Empty);
 					}
 				}
 			}
-		}
 
 		/// <summary>
 		/// Gets or sets the background color for the control under PDF page.
@@ -670,8 +734,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				if (_formHighlightColor != value)
 				{
 					_formHighlightColor = value;
-					if (Document != null && Document.FormFill != null)
-						Document.FormFill.SetHighlightColorEx(FormFieldTypes.FPDF_FORMFIELD_UNKNOWN, Helpers.ToArgb(_formHighlightColor));
+					if (_fillForms != null)
+						_fillForms.SetHighlightColorEx(FormFieldTypes.FPDF_FORMFIELD_UNKNOWN, Helpers.ToArgb(_formHighlightColor));
+					if (Document != null && !_loadedByViewer && _externalDocCapture.forms != null)
+						_externalDocCapture.forms.SetHighlightColorEx(FormFieldTypes.FPDF_FORMFIELD_UNKNOWN, Helpers.ToArgb(_formHighlightColor));
 					InvalidateVisual();
 					OnFormHighlightColorChanged(EventArgs.Empty);
 				}
@@ -867,6 +933,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <summary>
 		/// Gets or sets a value indicating whether the control can accept PDF document through Document property.
 		/// </summary>
+		[Obsolete("This property is ignored now", false)]
 		public bool AllowSetDocument { get; set; }
 
 		/// <summary>
@@ -1470,16 +1537,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		public void LoadDocument(string path, string password = null)
 		{
 			try {
-				Pdfium.FPDF_ShowSplash(true);
 				CloseDocument();
-				_document = PdfDocument.Load(path, _fillForms, password);
-				UpdateDocLayout();
-				_document.Pages.CurrentPageChanged += Pages_CurrentPageChanged;
-				_document.Pages.PageInserted += Pages_PageInserted;
-				_document.Pages.PageDeleted += Pages_PageDeleted;
-				_document.Pages.ProgressiveRender += Pages_ProgressiveRender;
-				SetCurrentPage(_onstartPageIndex);
-				ScrollToPage(_onstartPageIndex);
+				Document = PdfDocument.Load(path, _fillForms, password);
+				_loadedByViewer = true;
 				OnDocumentLoaded(EventArgs.Empty);
 			}
 			catch (NoLicenseException ex)
@@ -1509,16 +1569,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		public void LoadDocument(Stream stream, string password = null)
 		{
 			try {
-				Pdfium.FPDF_ShowSplash(true);
 				CloseDocument();
-				_document = PdfDocument.Load(stream, _fillForms, password);
-				UpdateDocLayout();
-				_document.Pages.CurrentPageChanged += Pages_CurrentPageChanged;
-				_document.Pages.PageInserted += Pages_PageInserted;
-				_document.Pages.PageDeleted += Pages_PageDeleted;
-				_document.Pages.ProgressiveRender += Pages_ProgressiveRender;
-				SetCurrentPage(_onstartPageIndex);
-				ScrollToPage(_onstartPageIndex);
+				Document = PdfDocument.Load(stream, _fillForms, password);
+				_loadedByViewer = true;
 				OnDocumentLoaded(EventArgs.Empty);
 			}
 			catch (NoLicenseException ex)
@@ -1548,16 +1601,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		public void LoadDocument(byte[] pdf, string password = null)
 		{
 			try {
-				Pdfium.FPDF_ShowSplash(true);
 				CloseDocument();
-				_document = PdfDocument.Load(pdf, _fillForms, password);
-				UpdateDocLayout();
-				_document.Pages.CurrentPageChanged += Pages_CurrentPageChanged;
-				_document.Pages.PageInserted += Pages_PageInserted;
-				_document.Pages.PageDeleted += Pages_PageDeleted;
-				_document.Pages.ProgressiveRender += Pages_ProgressiveRender;
-				SetCurrentPage(_onstartPageIndex);
-				ScrollToPage(_onstartPageIndex);
+				Document = PdfDocument.Load(pdf, _fillForms, password);
+				_loadedByViewer = true;
 				OnDocumentLoaded(EventArgs.Empty);
 			}
 			catch (NoLicenseException ex)
@@ -1571,24 +1617,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </summary>
 		public void CloseDocument()
 		{
-			if (_document != null)
-			{
-				if (OnDocumentClosing(new DocumentClosingEventArgs()))
-					return;
-				DeselectText();
-				_document.Dispose();
-				_document = null;
-				OnDocumentClosed(EventArgs.Empty);
-			}
-			_renderRects = null;
-			_document = null;
-			_onstartPageIndex = 0;
-			_extent = new Size(0, 0);
-			if (ScrollOwner != null)
-				ScrollOwner.InvalidateScrollInfo();
-			InvalidateVisual();
-
+			Document = null;
 		}
+
 		#endregion
 
 		#region Constructors and initialization
@@ -1620,15 +1651,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			//InitializeComponent();
 
 			_fillForms = new PdfForms();
-			_fillForms.SynchronizingObject = new DispatcherISyncInvoke(Dispatcher);
-			_fillForms.SetHighlightColorEx(FormFieldTypes.FPDF_FORMFIELD_UNKNOWN, Helpers.ToArgb(_formHighlightColor));
-			_fillForms.AppBeep += FormsAppBeep;
-			_fillForms.DoGotoAction += FormsDoGotoAction;
-			_fillForms.DoNamedAction += FormsDoNamedAction;
-			_fillForms.GotoPage += FormsGotoPage;
-			_fillForms.Invalidate += FormsInvalidate;
-			_fillForms.OutputSelectedRect += FormsOutputSelectedRect;
-			_fillForms.SetCursor += FormsSetCursor;
+			CaptureFillForms(_fillForms);
 		}
 		#endregion
 
@@ -2295,6 +2318,42 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		#endregion
 
 		#region Private methods
+		private CaptureInfo CaptureFillForms(PdfForms fillForms)
+		{
+			var ret = new CaptureInfo();
+			if (fillForms == null)
+				return ret;
+
+			ret.forms = fillForms;
+			ret.sync = fillForms.SynchronizingObject;
+
+			fillForms.SynchronizingObject = new DispatcherISyncInvoke(Dispatcher);
+			ret.color = fillForms.SetHighlightColorEx(FormFieldTypes.FPDF_FORMFIELD_UNKNOWN, Helpers.ToArgb(_formHighlightColor));
+			fillForms.AppBeep += FormsAppBeep;
+			fillForms.DoGotoAction += FormsDoGotoAction;
+			fillForms.DoNamedAction += FormsDoNamedAction;
+			fillForms.GotoPage += FormsGotoPage;
+			fillForms.Invalidate += FormsInvalidate;
+			fillForms.OutputSelectedRect += FormsOutputSelectedRect;
+			fillForms.SetCursor += FormsSetCursor;
+			return ret;
+		}
+
+		private void ReleaseFillForms(CaptureInfo captureInfo)
+		{
+			if (captureInfo.forms == null)
+				return;
+			captureInfo.forms.AppBeep -= FormsAppBeep;
+			captureInfo.forms.DoGotoAction -= FormsDoGotoAction;
+			captureInfo.forms.DoNamedAction -= FormsDoNamedAction;
+			captureInfo.forms.GotoPage -= FormsGotoPage;
+			captureInfo.forms.Invalidate -= FormsInvalidate;
+			captureInfo.forms.OutputSelectedRect -= FormsOutputSelectedRect;
+			captureInfo.forms.SetCursor -= FormsSetCursor;
+			captureInfo.forms.SynchronizingObject = captureInfo.sync;
+			captureInfo.forms.SetHighlightColorEx(FormFieldTypes.FPDF_FORMFIELD_UNKNOWN, captureInfo.color);
+		}
+
 		private bool DrawCanvasToContext(DrawingContext drawingContext, int cw, int ch, bool allPagesAreRendered)
 		{
 			//Convert PdfBitmap into Wpf WriteableBitmap
@@ -3295,7 +3354,12 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </summary>
 		public void MouseWheelUp()
 		{
-			SetVerticalOffset(this.VerticalOffset - _viewport.Height / 10 * 1);
+			if (ScrollOwner.ComputedVerticalScrollBarVisibility == Visibility.Visible)
+				SetVerticalOffset(this.VerticalOffset - _viewport.Height / 10 * 1);
+			else if (ScrollOwner.ComputedHorizontalScrollBarVisibility == Visibility.Visible)
+				SetHorizontalOffset(this.HorizontalOffset - _viewport.Width / 10 * 1);
+			else
+				SetVerticalOffset(this.VerticalOffset - _viewport.Height / 10 * 1);
 		}
 
 		/// <summary>
@@ -3303,7 +3367,12 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </summary>
 		public void MouseWheelDown()
 		{
-			SetVerticalOffset(this.VerticalOffset + _viewport.Height / 10 * 1);
+			if (ScrollOwner.ComputedVerticalScrollBarVisibility== Visibility.Visible)
+				SetVerticalOffset(this.VerticalOffset + _viewport.Height / 10 * 1);
+			else if (ScrollOwner.ComputedHorizontalScrollBarVisibility == Visibility.Visible)
+				SetHorizontalOffset(this.HorizontalOffset + _viewport.Width / 10 * 1);
+			else
+				SetVerticalOffset(this.VerticalOffset + _viewport.Height / 10 * 1);
 		}
 
 		/// <summary>

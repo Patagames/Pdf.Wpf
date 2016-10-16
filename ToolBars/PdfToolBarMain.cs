@@ -217,6 +217,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 		#region Private methods
 		private void UnsubscribePdfViewEvents(PdfViewer oldValue)
 		{
+			oldValue.AfterDocumentChanged -= PdfViewer_DocumentLoaded;
 			oldValue.DocumentClosing -= PdfViewer_DocumentClosed;
 			oldValue.DocumentLoaded -= PdfViewer_DocumentLoaded;
 			oldValue.DocumentClosed -= PdfViewer_DocumentClosed;
@@ -224,6 +225,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 
 		private void SubscribePdfViewEvents(PdfViewer newValue)
 		{
+			newValue.AfterDocumentChanged += PdfViewer_DocumentLoaded;
 			newValue.DocumentClosing += PdfViewer_DocumentClosed;
 			newValue.DocumentLoaded += PdfViewer_DocumentLoaded;
 			newValue.DocumentClosed += PdfViewer_DocumentClosed;
