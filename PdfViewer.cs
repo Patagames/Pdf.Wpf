@@ -16,522 +16,1110 @@ using System.Windows.Media.Imaging;
 
 namespace Patagames.Pdf.Net.Controls.Wpf
 {
-	/// <summary>
-	/// Represents a pdf view control for displaying an Pdf document.
-	/// </summary>	
-	public partial class PdfViewer : Control, IScrollInfo
-	{
-		#region Private fields
-		private SelectInfo _selectInfo = new SelectInfo() { StartPage = -1 };
-		private SortedDictionary<int, List<HighlightInfo>> _highlightedText = new SortedDictionary<int, List<HighlightInfo>>();
-		private bool _mousePressed = false;
-		private bool _mousePressedInLink = false;
-		private bool _isShowSelection = false;
-		private int _onstartPageIndex = 0;
-		private Point _panToolInitialScrollPosition;
-		private Point _panToolInitialMousePosition;
+    /// <summary>
+    /// Represents a pdf view control for displaying an Pdf document.
+    /// </summary>	
+    public partial class PdfViewer : Control, IScrollInfo
+    {
+        #region Private fields
+        private SelectInfo _selectInfo = new SelectInfo() { StartPage = -1 };
+        private SortedDictionary<int, List<HighlightInfo>> _highlightedText = new SortedDictionary<int, List<HighlightInfo>>();
+        private bool _mousePressed = false;
+        private bool _mousePressedInLink = false;
+        private bool _isShowSelection = false;
+        private int _onstartPageIndex = 0;
+        private Point _panToolInitialScrollPosition;
+        private Point _panToolInitialMousePosition;
 
-		private PdfForms _fillForms;
-		private List<Rect> _selectedRectangles = new List<Rect>();
-		private Pen _pageBorderColorPen;
-		private Brush _selectColorBrush;
-		private Pen _pageSeparatorColorPen;
-		private Pen _currentPageHighlightColorPen;
+        private PdfForms _fillForms;
+        private List<Rect> _selectedRectangles = new List<Rect>();
+        private Pen _pageBorderColorPen = Helpers.CreatePen((Color)PageBorderColorProperty.DefaultMetadata.DefaultValue);
+        private Brush _selectColorBrush = Helpers.CreateBrush((Color)TextSelectColorProperty.DefaultMetadata.DefaultValue);
+        private Pen _pageSeparatorColorPen = Helpers.CreatePen((Color)PageSeparatorColorProperty.DefaultMetadata.DefaultValue);
+		private Pen _currentPageHighlightColorPen = Helpers.CreatePen((Color)CurrentPageHighlightColorProperty.DefaultMetadata.DefaultValue, 4);
 
-		private PdfDocument _document;
-		private SizeModes _sizeMode = SizeModes.FitToWidth;
-		private Color _formHighlightColor;
-		private Color _pageBackColor;
-		private Color _pageBorderColor;
-		private Color _textSelectColor;
-		private Thickness _pageMargin;
-		private float _zoom;
-		private ViewModes _viewMode;
-		private Color _pageSeparatorColor;
-		private bool _showPageSeparator;
-		private Color _currentPageHighlightColor;
-		private bool _showCurrentPageHighlight;
-		private VerticalAlignment _pageVAlign;
+        private Rect[] _renderRects;
+        private int _startPage { get { return Document == null ? 0 : (ViewMode == ViewModes.SinglePage ? Document.Pages.CurrentIndex : 0); } }
+        private int _endPage { get { return Document == null ? -1 : (ViewMode == ViewModes.SinglePage ? Document.Pages.CurrentIndex : (_renderRects != null ? _renderRects.Length - 1 : -1)); } }
 
-		private HorizontalAlignment _pageHAlign;
-		private RenderFlags _renderFlags = RenderFlags.FPDF_LCD_TEXT | RenderFlags.FPDF_NO_CATCH;
-		private int _tilesCount;
-		private MouseModes _mouseMode;
-		private bool _showLoadingIcon = true;
-		private bool _useProgressiveRender = true;
-		private string _loadingIconText = Properties.Resources.LoadingText;
+        private Size _extent = new Size(0, 0);
+        private Size _viewport = new Size(0, 0);
+        private Point _autoScrollPosition = new Point(0, 0);
+        private bool _isProgrammaticallyFocusSetted=false;
+
+        private PRCollection _prPages = new PRCollection();
+        private System.Windows.Threading.DispatcherTimer _invalidateTimer = null;
+
+        WriteableBitmap _canvasWpfBitmap = null;
+        WriteableBitmap _formsWpfBitmap = null;
+        private bool _loadedByViewer = true;
+
+        private struct CaptureInfo
+        {
+            public PdfForms forms;
+            public ISynchronizeInvoke sync;
+            public int color;
+        }
+        private CaptureInfo _externalDocCapture;
+        #endregion
+
+        #region Events
+        /// <summary>
+        /// Occurs whenever the Document property is changed.
+        /// </summary>
+        public event EventHandler AfterDocumentChanged;
+
+        /// <summary>
+        /// Occurs immediately before the document property would be changed.
+        /// </summary>
+        public event EventHandler<DocumentClosingEventArgs> BeforeDocumentChanged;
+
+        /// <summary>
+        /// Occurs whenever the document loads.
+        /// </summary>
+        public event EventHandler DocumentLoaded;
+
+        /// <summary>
+        /// Occurs before the document unloads.
+        /// </summary>
+        public event EventHandler<DocumentClosingEventArgs> DocumentClosing;
+
+        /// <summary>
+        /// Occurs whenever the document unloads.
+        /// </summary>
+        public event EventHandler DocumentClosed;
+
+        /// <summary>
+        /// Occurs when the <see cref="SizeMode"/> property has changed.
+        /// </summary>
+        public event EventHandler SizeModeChanged;
+
+        /// <summary>
+        /// Event raised when the value of the <see cref="PageBackColor"/> property is changed on Control..
+        /// </summary>
+        public event EventHandler PageBackColorChanged;
+
+        /// <summary>
+        /// Occurs when the <see cref="PageMargin"/> property has changed.
+        /// </summary>
+        public event EventHandler PageMarginChanged;
+
+        /// <summary>
+        /// Event raised when the value of the <see cref="PageBorderColor"/> property is changed on Control.
+        /// </summary>
+        public event EventHandler PageBorderColorChanged;
+
+        /// <summary>
+        /// Event raised when the value of the <see cref="TextSelectColor"/> property is changed on Control.
+        /// </summary>
+        public event EventHandler TextSelectColorChanged;
+
+        /// <summary>
+        /// Event raised when the value of the <see cref="FormHighlightColor"/> property is changed on Control.
+        /// </summary>
+        public event EventHandler FormHighlightColorChanged;
+
+        /// <summary>
+        /// Occurs when the <see cref="Zoom"/> property has changed.
+        /// </summary>
+        public event EventHandler ZoomChanged;
+
+        /// <summary>
+        /// Occurs when the current selection has changed.
+        /// </summary>
+        public event EventHandler SelectionChanged;
+
+        /// <summary>
+        /// Occurs when the <see cref="ViewMode"/> property has changed.
+        /// </summary>
+        public event EventHandler ViewModeChanged;
+
+        /// <summary>
+        /// Occurs when the <see cref="PageSeparatorColor"/> property has changed.
+        /// </summary>
+        public event EventHandler PageSeparatorColorChanged;
+
+        /// <summary>
+        /// Occurs when the <see cref="ShowPageSeparator"/> property has changed.
+        /// </summary>
+        public event EventHandler ShowPageSeparatorChanged;
+
+        /// <summary>
+        /// Occurs when the <see cref="CurrentPage"/> or <see cref="CurrentIndex"/> property has changed.
+        /// </summary>
+        public event EventHandler CurrentPageChanged;
+
+        /// <summary>
+        /// Occurs when the <see cref="CurrentPageHighlightColor"/> property has changed.
+        /// </summary>
+        public event EventHandler CurrentPageHighlightColorChanged;
+
+        /// <summary>
+        /// Occurs when the <see cref="ShowCurrentPageHighlight"/> property has changed.
+        /// </summary>
+        public event EventHandler ShowCurrentPageHighlightChanged;
+
+        /// <summary>
+        /// Occurs when the value of the <see cref="PageVAlign"/> or <see cref="PageHAlign"/> property has changed.
+        /// </summary>
+        public event EventHandler PageAlignChanged;
+
+        /// <summary>
+        /// Occurs before PdfLink or WebLink on the page was clicked.
+        /// </summary>
+        public event EventHandler<PdfBeforeLinkClickedEventArgs> BeforeLinkClicked;
+
+        /// <summary>
+        /// Occurs after PdfLink or WebLink on the page was clicked.
+        /// </summary>
+        public event EventHandler<PdfAfterLinkClickedEventArgs> AfterLinkClicked;
+
+        /// <summary>
+        /// Occurs when the value of the <see cref="RenderFlags"/> property has changed.
+        /// </summary>
+        public event EventHandler RenderFlagsChanged;
+
+        /// <summary>
+        /// Occurs when the value of the <see cref="TilesCount"/> property has changed.
+        /// </summary>
+        public event EventHandler TilesCountChanged;
+
+        /// <summary>
+        /// Occurs when the text highlighting changed
+        /// </summary>
+        public event EventHandler HighlightedTextChanged;
+
+        /// <summary>
+        /// Occurs when the value of the <see cref="MouseModes"/> property has changed.
+        /// </summary>
+        public event EventHandler MouseModeChanged;
+
+        /// <summary>
+        /// Occurs when the value of the <see cref="ShowLoadingIcon"/> property has changed.
+        /// </summary>
+        public event EventHandler ShowLoadingIconChanged;
+
+        /// <summary>
+        /// Occurs when the value of the <see cref="UseProgressiveRender"/> property has changed.
+        /// </summary>
+        public event EventHandler UseProgressiveRenderChanged;
+
+        /// <summary>
+        /// Occurs when the value of the <see cref="LoadingIconText"/> property has changed.
+        /// </summary>
+        public event EventHandler LoadingIconTextChanged;
 
 
-		private Rect[] _renderRects;
-		private int _startPage { get { return Document == null ? 0 : (ViewMode == ViewModes.SinglePage ? Document.Pages.CurrentIndex : 0); } }
-		private int _endPage { get { return Document == null ? -1 : (ViewMode == ViewModes.SinglePage ? Document.Pages.CurrentIndex : (_renderRects != null ? _renderRects.Length - 1 : -1)); } }
+        #endregion
 
-		private Size _extent = new Size(0, 0);
-		private Size _viewport = new Size(0, 0);
-		private Point _autoScrollPosition = new Point(0, 0);
-		private bool _isProgrammaticallyFocusSetted=false;
+        #region Event raises
+        /// <summary>
+        /// Raises the <see cref="AfterDocumentChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnAfterDocumentChanged(EventArgs e)
+        {
+            if (AfterDocumentChanged != null)
+                AfterDocumentChanged(this, e);
+        }
 
-		private PRCollection _prPages = new PRCollection();
-		private System.Windows.Threading.DispatcherTimer _invalidateTimer = null;
+        /// <summary>
+        /// Raises the <see cref="BeforeDocumentChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        /// <returns>True if changing should be canceled, False otherwise</returns>
+        protected virtual bool OnBeforeDocumentChanged(DocumentClosingEventArgs e)
+        {
+            if (BeforeDocumentChanged != null)
+                BeforeDocumentChanged(this, e);
+            return e.Cancel;
+        }
 
-		WriteableBitmap _canvasWpfBitmap = null;
-		WriteableBitmap _formsWpfBitmap = null;
-		private bool _loadedByViewer = true;
+        /// <summary>
+        /// Raises the <see cref="DocumentLoaded"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnDocumentLoaded(EventArgs e)
+        {
+            if (DocumentLoaded != null)
+                DocumentLoaded(this, e);
+        }
 
-		private struct CaptureInfo
-		{
-			public PdfForms forms;
-			public ISynchronizeInvoke sync;
-			public int color;
-		}
-		private CaptureInfo _externalDocCapture;
+        /// <summary>
+        /// Raises the <see cref="DocumentClosing"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        /// <returns>True if closing should be canceled, False otherwise</returns>
+        protected virtual bool OnDocumentClosing(DocumentClosingEventArgs e)
+        {
+            if (DocumentClosing != null)
+                DocumentClosing(this, e);
+            return e.Cancel;
+        }
+
+        /// <summary>
+        /// Raises the <see cref="DocumentClosed"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnDocumentClosed(EventArgs e)
+        {
+            if (DocumentClosed != null)
+                DocumentClosed(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="SizeModeChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnSizeModeChanged(EventArgs e)
+        {
+            if (SizeModeChanged != null)
+                SizeModeChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="PageBackColorChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnPageBackColorChanged(EventArgs e)
+        {
+            if (PageBackColorChanged != null)
+                PageBackColorChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="PageMarginChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnPageMarginChanged(EventArgs e)
+        {
+            if (PageMarginChanged != null)
+                PageMarginChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="PageBorderColorChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnPageBorderColorChanged(EventArgs e)
+        {
+            if (PageBorderColorChanged != null)
+                PageBorderColorChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="TextSelectColorChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnTextSelectColorChanged(EventArgs e)
+        {
+            if (TextSelectColorChanged != null)
+                TextSelectColorChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="FormHighlightColorChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnFormHighlightColorChanged(EventArgs e)
+        {
+            if (FormHighlightColorChanged != null)
+                FormHighlightColorChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="ZoomChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnZoomChanged(EventArgs e)
+        {
+            if (ZoomChanged != null)
+                ZoomChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="SelectionChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnSelectionChanged(EventArgs e)
+        {
+            if (SelectionChanged != null)
+                SelectionChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="ViewModeChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnViewModeChanged(EventArgs e)
+        {
+            if (ViewModeChanged != null)
+                ViewModeChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="PageSeparatorColorChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnPageSeparatorColorChanged(EventArgs e)
+        {
+            if (PageSeparatorColorChanged != null)
+                PageSeparatorColorChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="ShowPageSeparatorChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnShowPageSeparatorChanged(EventArgs e)
+        {
+            if (ShowPageSeparatorChanged != null)
+                ShowPageSeparatorChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="CurrentPageChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnCurrentPageChanged(EventArgs e)
+        {
+            if (CurrentPageChanged != null)
+                CurrentPageChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="CurrentPageHighlightColorChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnCurrentPageHighlightColorChanged(EventArgs e)
+        {
+            if (CurrentPageHighlightColorChanged != null)
+                CurrentPageHighlightColorChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="ShowCurrentPageHighlightChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnShowCurrentPageHighlightChanged(EventArgs e)
+        {
+            if (ShowCurrentPageHighlightChanged != null)
+                ShowCurrentPageHighlightChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="PageAlignChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnPageAlignChanged(EventArgs e)
+        {
+            if (PageAlignChanged != null)
+                PageAlignChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="BeforeLinkClicked"/> event.
+        /// </summary>
+        /// <param name="e">An PdfBeforeLinkClickedEventArgs that contains the event data.</param>
+        protected virtual void OnBeforeLinkClicked(PdfBeforeLinkClickedEventArgs e)
+        {
+            if (BeforeLinkClicked != null)
+                BeforeLinkClicked(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="AfterLinkClicked"/> event.
+        /// </summary>
+        /// <param name="e">An PdfAfterLinkClickedEventArgs that contains the event data.</param>
+        protected virtual void OnAfterLinkClicked(PdfAfterLinkClickedEventArgs e)
+        {
+            if (AfterLinkClicked != null)
+                AfterLinkClicked(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="RenderFlagsChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnRenderFlagsChanged(EventArgs e)
+        {
+            if (RenderFlagsChanged != null)
+                RenderFlagsChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="TilesCountChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnTilesCountChanged(EventArgs e)
+        {
+            if (TilesCountChanged != null)
+                TilesCountChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="HighlightedTextChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnHighlightedTextChanged(EventArgs e)
+        {
+            if (HighlightedTextChanged != null)
+                HighlightedTextChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="MouseModeChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnMouseModeChanged(EventArgs e)
+        {
+            if (MouseModeChanged != null)
+                MouseModeChanged(this, e);
+        }
+        /// <summary>
+        /// Raises the <see cref="ShowLoadingIconChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnShowLoadingIconChanged(EventArgs e)
+        {
+            if (ShowLoadingIconChanged != null)
+                ShowLoadingIconChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="UseProgressiveRenderChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnUseProgressiveRenderChanged(EventArgs e)
+        {
+            if (UseProgressiveRenderChanged != null)
+                UseProgressiveRenderChanged(this, e);
+        }
+
+        /// <summary>
+        /// Raises the <see cref="LoadingIconTextChanged"/> event.
+        /// </summary>
+        /// <param name="e">An System.EventArgs that contains the event data.</param>
+        protected virtual void OnLoadingIconTextChanged(EventArgs e)
+        {
+            if (LoadingIconTextChanged != null)
+                LoadingIconTextChanged(this, e);
+        }
 		#endregion
 
-		#region Events
+		#region Dependency properties
 		/// <summary>
-		/// Occurs whenever the Document property is changed.
+		/// DependencyProperty as the backing store for <see cref="PdfViewer"/>
 		/// </summary>
-		public event EventHandler AfterDocumentChanged;
+		/// <remarks>
+		/// <note type="note">
+		/// Please note
+		/// <list type="bullet">
+		/// <item>
+		/// The OneWay binding would be disabled if you set the Document property with a document what is not from the binding source. 
+		/// More explanations can be found <a href="http://stackoverflow.com/questions/1389038/why-does-data-binding-break-in-oneway-mode">here</a>
+		/// </item>
+		/// <item>The TwoWay binding does not allow you to set the Document property with the document what is not from a binding source.</item>
+		/// </list>
+		/// </note>
+		/// </remarks>
+		public static readonly DependencyProperty DocumentProperty =
+            DependencyProperty.Register("Document", typeof(PdfDocument), typeof(PdfViewer),
+                new PropertyMetadata(null, 
+                    (o, e) =>
+                    {
+                        var viewer = o as PdfViewer;
+                        var oldValue = e.OldValue as PdfDocument;
+                        var newValue = e.NewValue as PdfDocument;
 
-		/// <summary>
-		/// Occurs immediately before the document property would be changed.
-		/// </summary>
-		public event EventHandler<DocumentClosingEventArgs> BeforeDocumentChanged;
+                        if (oldValue != newValue)
+                        {
+                            if (oldValue != null && viewer._loadedByViewer)
+                            {
+                                //we need to close the previous document if it was loaded by viewer
+                                oldValue.Dispose();
+                                //_document = null;
+                                viewer.OnDocumentClosed(EventArgs.Empty);
+                            }
+                            else if (oldValue != null && !viewer._loadedByViewer)
+                            {
+                                oldValue.Pages.CurrentPageChanged -= viewer.Pages_CurrentPageChanged;
+                                oldValue.Pages.PageInserted -= viewer.Pages_PageInserted;
+                                oldValue.Pages.PageDeleted -= viewer.Pages_PageDeleted;
+                                oldValue.Pages.ProgressiveRender -= viewer.Pages_ProgressiveRender;
+                            }
+                            viewer._extent = new Size(0, 0);
+                            viewer._selectInfo = new SelectInfo() { StartPage = -1 };
+                            viewer._highlightedText.Clear();
+                            viewer._onstartPageIndex = 0;
+                            viewer._renderRects = null;
+                            viewer._loadedByViewer = false;
+                            Pdfium.FPDF_ShowSplash(true);
+                            viewer.ReleaseFillForms(viewer._externalDocCapture);
+                            //_document = value;
+                            viewer.UpdateDocLayout();
+                            if (newValue != null)
+                            {
+                                if (newValue.FormFill != viewer._fillForms)
+                                    viewer._externalDocCapture = viewer.CaptureFillForms(newValue.FormFill);
+                                newValue.Pages.CurrentPageChanged += viewer.Pages_CurrentPageChanged;
+                                newValue.Pages.PageInserted += viewer.Pages_PageInserted;
+                                newValue.Pages.PageDeleted += viewer.Pages_PageDeleted;
+                                newValue.Pages.ProgressiveRender += viewer.Pages_ProgressiveRender;
+                                viewer.SetCurrentPage(viewer._onstartPageIndex);
+                                if (newValue.Pages.Count > 0)
+                                    viewer.ScrollToPage(viewer._onstartPageIndex);
+                            }
+                            viewer.OnAfterDocumentChanged(EventArgs.Empty);
+                        }
+                     },
+                    (dobj, o) =>
+                    {
+                        var viewer = dobj as PdfViewer;
+                        var oldValue = viewer.Document;
+                        var newValue = o as PdfDocument;
 
-		/// <summary>
-		/// Occurs whenever the document loads.
-		/// </summary>
-		public event EventHandler DocumentLoaded;
+                        if (oldValue != newValue)
+                        {
+                            if (viewer.OnBeforeDocumentChanged(new DocumentClosingEventArgs()))
+                                return oldValue;
 
-		/// <summary>
-		/// Occurs before the document unloads.
-		/// </summary>
-		public event EventHandler<DocumentClosingEventArgs> DocumentClosing;
-
-		/// <summary>
-		/// Occurs whenever the document unloads.
-		/// </summary>
-		public event EventHandler DocumentClosed;
-
-		/// <summary>
-		/// Occurs when the <see cref="SizeMode"/> property has changed.
-		/// </summary>
-		public event EventHandler SizeModeChanged;
-
-		/// <summary>
-		/// Event raised when the value of the <see cref="PageBackColor"/> property is changed on Control..
-		/// </summary>
-		public event EventHandler PageBackColorChanged;
-
-		/// <summary>
-		/// Occurs when the <see cref="PageMargin"/> property has changed.
-		/// </summary>
-		public event EventHandler PageMarginChanged;
-
-		/// <summary>
-		/// Event raised when the value of the <see cref="PageBorderColor"/> property is changed on Control.
-		/// </summary>
-		public event EventHandler PageBorderColorChanged;
-
-		/// <summary>
-		/// Event raised when the value of the <see cref="TextSelectColor"/> property is changed on Control.
-		/// </summary>
-		public event EventHandler TextSelectColorChanged;
-
-		/// <summary>
-		/// Event raised when the value of the <see cref="FormHighlightColor"/> property is changed on Control.
-		/// </summary>
-		public event EventHandler FormHighlightColorChanged;
-
-		/// <summary>
-		/// Occurs when the <see cref="Zoom"/> property has changed.
-		/// </summary>
-		public event EventHandler ZoomChanged;
-
-		/// <summary>
-		/// Occurs when the current selection has changed.
-		/// </summary>
-		public event EventHandler SelectionChanged;
-
-		/// <summary>
-		/// Occurs when the <see cref="ViewMode"/> property has changed.
-		/// </summary>
-		public event EventHandler ViewModeChanged;
-
-		/// <summary>
-		/// Occurs when the <see cref="PageSeparatorColor"/> property has changed.
-		/// </summary>
-		public event EventHandler PageSeparatorColorChanged;
-
-		/// <summary>
-		/// Occurs when the <see cref="ShowPageSeparator"/> property has changed.
-		/// </summary>
-		public event EventHandler ShowPageSeparatorChanged;
-
-		/// <summary>
-		/// Occurs when the <see cref="CurrentPage"/> or <see cref="CurrentIndex"/> property has changed.
-		/// </summary>
-		public event EventHandler CurrentPageChanged;
-
-		/// <summary>
-		/// Occurs when the <see cref="CurrentPageHighlightColor"/> property has changed.
-		/// </summary>
-		public event EventHandler CurrentPageHighlightColorChanged;
+                            if (oldValue != null && viewer._loadedByViewer)
+                            {
+                                //we need to close the previous document if it was loaded by viewer
+                                if (viewer.OnDocumentClosing(new DocumentClosingEventArgs()))
+                                    return oldValue; //the closing was canceled;
+                            }
+                        }
+                        return newValue;
+                    }));
 
 		/// <summary>
-		/// Occurs when the <see cref="ShowCurrentPageHighlight"/> property has changed.
+		/// DependencyProperty as the backing store for <see cref="PageBackColor"/>
 		/// </summary>
-		public event EventHandler ShowCurrentPageHighlightChanged;
+		public static readonly DependencyProperty PageBackColorProperty =
+			DependencyProperty.Register("PageBackColor", typeof(Color), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(Color.FromArgb(255, 255, 255, 255),
+					FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.Journal,
+					(o, e) => { (o as PdfViewer).OnPageBackColorChanged(EventArgs.Empty); }));
 
 		/// <summary>
-		/// Occurs when the value of the <see cref="PageVAlign"/> or <see cref="PageHAlign"/> property has changed.
+		/// DependencyProperty as the backing store for <see cref="PageMargin"/>
 		/// </summary>
-		public event EventHandler PageAlignChanged;
+		public static readonly DependencyProperty PageMarginProperty =
+			DependencyProperty.Register("PageMargin", typeof(Thickness), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(new Thickness(10),
+					FrameworkPropertyMetadataOptions.Journal | FrameworkPropertyMetadataOptions.AffectsArrange | FrameworkPropertyMetadataOptions.AffectsMeasure,
+					(o, e) => {
+						(o as PdfViewer).UpdateDocLayout();
+						(o as PdfViewer).OnPageMarginChanged(EventArgs.Empty); }));
 
 		/// <summary>
-		/// Occurs before PdfLink or WebLink on the page was clicked.
+		/// DependencyProperty as the backing store for <see cref="Padding"/>
 		/// </summary>
-		public event EventHandler<PdfBeforeLinkClickedEventArgs> BeforeLinkClicked;
+		public static readonly new DependencyProperty PaddingProperty =
+			DependencyProperty.Register("Padding", typeof(Thickness), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(new Thickness(10),
+					FrameworkPropertyMetadataOptions.Journal | FrameworkPropertyMetadataOptions.AffectsArrange | FrameworkPropertyMetadataOptions.AffectsMeasure,
+					(o, e) => {
+						(o as PdfViewer).UpdateDocLayout();
+					}));
 
 		/// <summary>
-		/// Occurs after PdfLink or WebLink on the page was clicked.
+		/// DependencyProperty as the backing store for <see cref="PageBorderColor"/>
 		/// </summary>
-		public event EventHandler<PdfAfterLinkClickedEventArgs> AfterLinkClicked;
+		public static readonly DependencyProperty PageBorderColorProperty =
+			DependencyProperty.Register("PageBorderColor", typeof(Color), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(Color.FromArgb(255, 0, 0, 0),
+					FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.Journal,
+					(o, e) => 
+					{
+						var viewer = (o as PdfViewer);
+						viewer._pageBorderColorPen = Helpers.CreatePen((Color)e.NewValue);
+						viewer.OnPageBorderColorChanged(EventArgs.Empty);
+					}));
 
 		/// <summary>
-		/// Occurs when the value of the <see cref="RenderFlags"/> property has changed.
+		/// DependencyProperty as the backing store for <see cref="SizeMode"/>
 		/// </summary>
-		public event EventHandler RenderFlagsChanged;
+		public static readonly DependencyProperty SizeModeProperty =
+			DependencyProperty.Register("SizeMode", typeof(SizeModes), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(SizeModes.FitToWidth,
+					FrameworkPropertyMetadataOptions.Journal,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						viewer.UpdateDocLayout();
+						viewer.OnSizeModeChanged(EventArgs.Empty);
+					}));
 
 		/// <summary>
-		/// Occurs when the value of the <see cref="TilesCount"/> property has changed.
+		/// DependencyProperty as the backing store for <see cref="TextSelectColor"/>
 		/// </summary>
-		public event EventHandler TilesCountChanged;
+		public static readonly DependencyProperty TextSelectColorProperty =
+			DependencyProperty.Register("TextSelectColor", typeof(Color), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(Color.FromArgb(70, 70, 130, 180),
+					FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.Journal,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						viewer._selectColorBrush = Helpers.CreateBrush((Color)e.NewValue);
+						viewer.OnTextSelectColorChanged(EventArgs.Empty);
+					}));
 
 		/// <summary>
-		/// Occurs when the text highlighting changed
+		/// DependencyProperty as the backing store for <see cref="FormHighlightColor"/>
 		/// </summary>
-		public event EventHandler HighlightedTextChanged;
+		public static readonly DependencyProperty FormHighlightColorProperty =
+			DependencyProperty.Register("FormHighlightColor", typeof(Color), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(Color.FromArgb(0, 255, 255, 255),
+					FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.Journal,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						if (viewer._fillForms != null)
+							viewer._fillForms.SetHighlightColorEx(FormFieldTypes.FPDF_FORMFIELD_UNKNOWN, Helpers.ToArgb((Color)e.NewValue));
+						if (viewer.Document != null && !viewer._loadedByViewer && viewer._externalDocCapture.forms != null)
+							viewer._externalDocCapture.forms.SetHighlightColorEx(FormFieldTypes.FPDF_FORMFIELD_UNKNOWN, Helpers.ToArgb((Color)e.NewValue));
+						viewer.OnFormHighlightColorChanged(EventArgs.Empty);
+					}));
 
 		/// <summary>
-		/// Occurs when the value of the <see cref="MouseModes"/> property has changed.
+		/// DependencyProperty as the backing store for <see cref="Zoom"/>
 		/// </summary>
-		public event EventHandler MouseModeChanged;
+		public static readonly DependencyProperty ZoomProperty =
+			DependencyProperty.Register("Zoom", typeof(float), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(1.0f,
+					FrameworkPropertyMetadataOptions.Journal | FrameworkPropertyMetadataOptions.AffectsArrange | FrameworkPropertyMetadataOptions.AffectsMeasure,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						viewer.UpdateDocLayout();
+						viewer.OnZoomChanged(EventArgs.Empty);
+					}));
+
+        /// <summary>
+        /// DependencyProperty as the backing store for <see cref="SelectedText"/>
+        /// </summary>
+        public static readonly DependencyProperty SelectedTextProperty =
+            DependencyProperty.Register("SelectedText", typeof(string), typeof(PdfViewer),
+                new FrameworkPropertyMetadata("",
+                    FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.Journal));
 
 		/// <summary>
-		/// Occurs when the value of the <see cref="ShowLoadingIcon"/> property has changed.
+		/// DependencyProperty as the backing store for <see cref="ViewMode"/>
 		/// </summary>
-		public event EventHandler ShowLoadingIconChanged;
+		public static readonly DependencyProperty ViewModeProperty =
+			DependencyProperty.Register("ViewMode", typeof(ViewModes), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(ViewModes.Vertical,
+					FrameworkPropertyMetadataOptions.Journal,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						viewer.UpdateDocLayout();
+						viewer.OnViewModeChanged(EventArgs.Empty);
+					}));
 
 		/// <summary>
-		/// Occurs when the value of the <see cref="UseProgressiveRender"/> property has changed.
+		/// DependencyProperty as the backing store for <see cref="PageSeparatorColor"/>
 		/// </summary>
-		public event EventHandler UseProgressiveRenderChanged;
+		public static readonly DependencyProperty PageSeparatorColorProperty =
+			DependencyProperty.Register("PageSeparatorColor", typeof(Color), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(Color.FromArgb(255, 190, 190, 190),
+					FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.Journal,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						viewer._pageSeparatorColorPen = Helpers.CreatePen((Color)e.NewValue);
+						viewer.OnPageSeparatorColorChanged(EventArgs.Empty);
+					}));
 
 		/// <summary>
-		/// Occurs when the value of the <see cref="LoadingIconText"/> property has changed.
+		/// DependencyProperty as the backing store for <see cref="ShowPageSeparator"/>
 		/// </summary>
-		public event EventHandler LoadingIconTextChanged;
+		public static readonly DependencyProperty ShowPageSeparatorProperty =
+			DependencyProperty.Register("ShowPageSeparator", typeof(bool), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(true,
+					 FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.Journal,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						viewer.OnShowPageSeparatorChanged(EventArgs.Empty);
+					}));
 
+		/// <summary>
+		/// DependencyProperty as the backing store for <see cref="CurrentPageHighlightColor"/>
+		/// </summary>
+		public static readonly DependencyProperty CurrentPageHighlightColorProperty =
+			DependencyProperty.Register("CurrentPageHighlightColor", typeof(Color), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(Color.FromArgb(170, 70, 130, 180),
+					FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.Journal,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						viewer._currentPageHighlightColorPen = Helpers.CreatePen((Color)e.NewValue, 4);
+						viewer.OnCurrentPageHighlightColorChanged(EventArgs.Empty);
+					}));
 
+		/// <summary>
+		/// DependencyProperty as the backing store for <see cref="ShowCurrentPageHighlight"/>
+		/// </summary>
+		public static readonly DependencyProperty ShowCurrentPageHighlightProperty =
+			DependencyProperty.Register("ShowCurrentPageHighlight", typeof(bool), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(true,
+					 FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.Journal,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						viewer.OnShowCurrentPageHighlightChanged(EventArgs.Empty);
+					}));
+
+		/// <summary>
+		/// DependencyProperty as the backing store for <see cref="PageVAlign"/>
+		/// </summary>
+		public static readonly DependencyProperty PageVAlignProperty =
+			DependencyProperty.Register("PageVAlign", typeof(VerticalAlignment), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(VerticalAlignment.Center,
+					 FrameworkPropertyMetadataOptions.Journal,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						viewer.UpdateDocLayout();
+						viewer.OnPageAlignChanged(EventArgs.Empty);
+					}));
+
+		/// <summary>
+		/// DependencyProperty as the backing store for <see cref="PageHAlign"/>
+		/// </summary>
+		public static readonly DependencyProperty PageHAlignProperty =
+			DependencyProperty.Register("PageHAlign", typeof(HorizontalAlignment), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(HorizontalAlignment.Center,
+					 FrameworkPropertyMetadataOptions.Journal,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						viewer.UpdateDocLayout();
+						viewer.OnPageAlignChanged(EventArgs.Empty);
+					}));
+
+		/// <summary>
+		/// DependencyProperty as the backing store for <see cref="RenderFlags"/>
+		/// </summary>
+		public static readonly DependencyProperty RenderFlagsProperty =
+			DependencyProperty.Register("RenderFlags", typeof(RenderFlags), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(RenderFlags.FPDF_LCD_TEXT | RenderFlags.FPDF_NO_CATCH,
+					 FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.Journal,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						viewer.OnRenderFlagsChanged(EventArgs.Empty);
+					}));
+
+		/// <summary>
+		/// DependencyProperty as the backing store for <see cref="TilesCount"/>
+		/// </summary>
+		public static readonly DependencyProperty TilesCountProperty =
+			DependencyProperty.Register("TilesCount", typeof(int), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(2,
+					 FrameworkPropertyMetadataOptions.Journal,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						viewer.UpdateDocLayout();
+						viewer.OnTilesCountChanged(EventArgs.Empty);
+					}, 
+					(v, o) => 
+					{
+						return (int)o < 2 ? 2 : o;
+					}));
+
+		/// <summary>
+		/// DependencyProperty as the backing store for <see cref="MouseMode"/>
+		/// </summary>
+		public static readonly DependencyProperty MouseModeProperty =
+			DependencyProperty.Register("MouseMode", typeof(MouseModes), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(MouseModes.Default,
+					 FrameworkPropertyMetadataOptions.Journal,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						viewer.OnMouseModeChanged(EventArgs.Empty);
+					}));
+
+		/// <summary>
+		/// DependencyProperty as the backing store for <see cref="ShowLoadingIcon"/>
+		/// </summary>
+		public static readonly DependencyProperty ShowLoadingIconProperty =
+			DependencyProperty.Register("ShowLoadingIcon", typeof(bool), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(true,
+					 FrameworkPropertyMetadataOptions.Journal,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						viewer.OnShowLoadingIconChanged(EventArgs.Empty);
+					}));
+
+		/// <summary>
+		/// DependencyProperty as the backing store for <see cref="UseProgressiveRender"/>
+		/// </summary>
+		public static readonly DependencyProperty UseProgressiveRenderProperty =
+			DependencyProperty.Register("UseProgressiveRender", typeof(bool), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(true,
+					 FrameworkPropertyMetadataOptions.Journal,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						viewer.UpdateDocLayout();
+						viewer.OnUseProgressiveRenderChanged(EventArgs.Empty);
+					}));
+
+		/// <summary>
+		/// DependencyProperty as the backing store for <see cref="LoadingIconText"/>
+		/// </summary>
+		public static readonly DependencyProperty LoadingIconTextProperty =
+			DependencyProperty.Register("LoadingIconText", typeof(string), typeof(PdfViewer),
+				new FrameworkPropertyMetadata("",
+					 FrameworkPropertyMetadataOptions.Journal,
+					(o, e) =>
+					{
+						var viewer = (o as PdfViewer);
+						viewer.OnLoadingIconTextChanged(EventArgs.Empty);
+					}));
 		#endregion
 
-		#region Event raises
+		#region Public properties (dependency)
 		/// <summary>
-		/// Raises the <see cref="AfterDocumentChanged"/> event.
+		/// Gets or sets the PDF document associated with the current PdfViewer control.
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnAfterDocumentChanged(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.DocumentProperty"/></remarks>
+		public PdfDocument Document
+        {
+            get { return (PdfDocument)GetValue(DocumentProperty); }
+            set { SetValue(DocumentProperty, value); }
+        }
+
+		/// <summary>
+		/// Gets or sets the background color for the control under PDF page.
+		/// </summary>
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.PageBackColorProperty"/></remarks>
+		public Color PageBackColor
 		{
-			if (AfterDocumentChanged != null)
-				AfterDocumentChanged(this, e);
+			get { return (Color)GetValue(PageBackColorProperty); }
+			set { SetValue(PageBackColorProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="BeforeDocumentChanged"/> event.
+		/// Specifies space between pages margins
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		/// <returns>True if changing should be canceled, False otherwise</returns>
-		protected virtual bool OnBeforeDocumentChanged(DocumentClosingEventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.PageMarginProperty"/></remarks>
+		public Thickness PageMargin
 		{
-			if (BeforeDocumentChanged != null)
-				BeforeDocumentChanged(this, e);
-			return e.Cancel;
+			get { return (Thickness)GetValue(PageMarginProperty); }
+			set { SetValue(PageMarginProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="DocumentLoaded"/> event.
+		/// Gets or sets the padding inside a control.
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnDocumentLoaded(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.PaddingProperty"/></remarks>
+		public new Thickness Padding
 		{
-			if (DocumentLoaded != null)
-				DocumentLoaded(this, e);
+			get { return (Thickness)GetValue(PaddingProperty); }
+			set { SetValue(PaddingProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="DocumentClosing"/> event.
+		/// Gets or sets the border color of the page
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		/// <returns>True if closing should be canceled, False otherwise</returns>
-		protected virtual bool OnDocumentClosing(DocumentClosingEventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.PageBorderColorProperty"/></remarks>
+		public Color PageBorderColor
 		{
-			if (DocumentClosing != null)
-				DocumentClosing(this, e);
-			return e.Cancel;
+			get { return (Color)GetValue(PageBorderColorProperty); }
+			set { SetValue(PageBorderColorProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="DocumentClosed"/> event.
+		/// Control how the PdfViewer will handle  pages placement and control sizing
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnDocumentClosed(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.SizeModeProperty"/></remarks>
+		public SizeModes SizeMode
 		{
-			if (DocumentClosed != null)
-				DocumentClosed(this, e);
+			get { return (SizeModes)GetValue(SizeModeProperty); }
+			set { SetValue(SizeModeProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="SizeModeChanged"/> event.
+		/// Gets or sets the selection color of the control.
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnSizeModeChanged(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.TextSelectColorProperty"/></remarks>
+		public Color TextSelectColor
 		{
-			if (SizeModeChanged != null)
-				SizeModeChanged(this, e);
+			get { return (Color)GetValue(TextSelectColorProperty); }
+			set { SetValue(TextSelectColorProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="PageBackColorChanged"/> event.
+		/// Gets or set the highlight color of the form fields in the document.
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnPageBackColorChanged(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.FormHighlightColorProperty"/></remarks>
+		public Color FormHighlightColor
 		{
-			if (PageBackColorChanged != null)
-				PageBackColorChanged(this, e);
+			get { return (Color)GetValue(FormHighlightColorProperty); }
+			set { SetValue(FormHighlightColorProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="PageMarginChanged"/> event.
+		/// This property allows you to scale the PDF page. To take effect the <see cref="SizeMode"/> property should be Zoom
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnPageMarginChanged(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.ZoomProperty"/></remarks>
+		public float Zoom
 		{
-			if (PageMarginChanged != null)
-				PageMarginChanged(this, e);
+			get { return (float)GetValue(ZoomProperty); }
+			set { SetValue(ZoomProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="PageBorderColorChanged"/> event.
+		/// Gets selected text from PdfView control
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnPageBorderColorChanged(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.SelectedTextProperty"/></remarks>
+		public string SelectedText
 		{
-			if (PageBorderColorChanged != null)
-				PageBorderColorChanged(this, e);
+            get { return (string)GetValue(SelectedTextProperty); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="TextSelectColorChanged"/> event.
+		/// Control how the PdfViewer will display pages
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnTextSelectColorChanged(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.ViewModeProperty"/></remarks>
+		public ViewModes ViewMode
 		{
-			if (TextSelectColorChanged != null)
-				TextSelectColorChanged(this, e);
+			get { return (ViewModes)GetValue(ViewModeProperty); }
+			set { SetValue(ViewModeProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="FormHighlightColorChanged"/> event.
+		/// Gets or sets the page separator color.
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnFormHighlightColorChanged(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.PageSeparatorColorProperty"/></remarks>
+		public Color PageSeparatorColor
 		{
-			if (FormHighlightColorChanged != null)
-				FormHighlightColorChanged(this, e);
+			get { return (Color)GetValue(PageSeparatorColorProperty); }
+			set { SetValue(PageSeparatorColorProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="ZoomChanged"/> event.
+		/// Determines whether the page separator is visible or hidden
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnZoomChanged(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.ShowPageSeparatorProperty"/></remarks>
+		public bool ShowPageSeparator
 		{
-			if (ZoomChanged != null)
-				ZoomChanged(this, e);
+			get { return (bool)GetValue(ShowPageSeparatorProperty); }
+			set { SetValue(ShowPageSeparatorProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="SelectionChanged"/> event.
+		/// Gets or sets the current page highlight color.
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnSelectionChanged(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.CurrentPageHighlightColorProperty"/></remarks>
+		public Color CurrentPageHighlightColor
 		{
-			if (SelectionChanged != null)
-				SelectionChanged(this, e);
+			get { return (Color)GetValue(CurrentPageHighlightColorProperty); }
+			set { SetValue(CurrentPageHighlightColorProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="ViewModeChanged"/> event.
+		/// Determines whether the current page's highlight is visible or hidden.
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnViewModeChanged(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.ShowCurrentPageHighlightProperty"/></remarks>
+		public bool ShowCurrentPageHighlight
 		{
-			if (ViewModeChanged != null)
-				ViewModeChanged(this, e);
+			get { return (bool)GetValue(ShowCurrentPageHighlightProperty); }
+			set { SetValue(ShowCurrentPageHighlightProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="PageSeparatorColorChanged"/> event.
+		/// Gets or sets the vertical alignment of page in the control.
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnPageSeparatorColorChanged(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.PageVAlignProperty"/></remarks>
+		public VerticalAlignment PageVAlign
 		{
-			if (PageSeparatorColorChanged != null)
-				PageSeparatorColorChanged(this, e);
+			get { return (VerticalAlignment)GetValue(PageVAlignProperty); }
+			set { SetValue(PageVAlignProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="ShowPageSeparatorChanged"/> event.
+		/// Gets or sets the horizontal alignment of page in the control.
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnShowPageSeparatorChanged(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.PageHAlignProperty"/></remarks>
+		public HorizontalAlignment PageHAlign
 		{
-			if (ShowPageSeparatorChanged != null)
-				ShowPageSeparatorChanged(this, e);
+			get { return (HorizontalAlignment)GetValue(PageHAlignProperty); }
+			set { SetValue(PageHAlignProperty, value); }
+		}
+
+
+		/// <summary>
+		/// Gets or sets a RenderFlags. None for normal display, or combination of <see cref="RenderFlags"/>
+		/// </summary>
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.RenderFlagsProperty"/></remarks>
+		public RenderFlags RenderFlags
+		{
+			get { return (RenderFlags)GetValue(RenderFlagsProperty); }
+			set { SetValue(RenderFlagsProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="CurrentPageChanged"/> event.
+		/// Gets or sets visible page count for tiles view mode
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnCurrentPageChanged(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.TilesCountProperty"/></remarks>
+		public int TilesCount
 		{
-			if (CurrentPageChanged != null)
-				CurrentPageChanged(this, e);
+			get { return (int)GetValue(TilesCountProperty); }
+			set { SetValue(TilesCountProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="CurrentPageHighlightColorChanged"/> event.
+		/// Gets or sets mouse mode for PdfViewer control
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnCurrentPageHighlightColorChanged(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.MouseModeProperty"/></remarks>
+		public MouseModes MouseMode
 		{
-			if (CurrentPageHighlightColorChanged != null)
-				CurrentPageHighlightColorChanged(this, e);
+			get { return (MouseModes)GetValue(MouseModeProperty); }
+			set { SetValue(MouseModeProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="ShowCurrentPageHighlightChanged"/> event.
+		/// Determines whether the page's loading icon should be shown
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnShowCurrentPageHighlightChanged(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.ShowLoadingIconProperty"/></remarks>
+		public bool ShowLoadingIcon
 		{
-			if (ShowCurrentPageHighlightChanged != null)
-				ShowCurrentPageHighlightChanged(this, e);
+			get { return (bool)GetValue(ShowLoadingIconProperty); }
+			set { SetValue(ShowLoadingIconProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="PageAlignChanged"/> event.
+		/// If true the progressive rendering is used for render page
 		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnPageAlignChanged(EventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.UseProgressiveRenderProperty"/></remarks>
+		public bool UseProgressiveRender
 		{
-			if (PageAlignChanged != null)
-				PageAlignChanged(this, e);
+			get { return (bool)GetValue(UseProgressiveRenderProperty); }
+			set { SetValue(UseProgressiveRenderProperty, value); }
 		}
 
 		/// <summary>
-		/// Raises the <see cref="BeforeLinkClicked"/> event.
+		/// Gets or sets loading icon text in progressive rendering mode
 		/// </summary>
-		/// <param name="e">An PdfBeforeLinkClickedEventArgs that contains the event data.</param>
-		protected virtual void OnBeforeLinkClicked(PdfBeforeLinkClickedEventArgs e)
+		/// <remarks>It's a dependency property. Please find more details here: <see cref="PdfViewer.LoadingIconTextProperty"/></remarks>
+		public string LoadingIconText
 		{
-			if (BeforeLinkClicked != null)
-				BeforeLinkClicked(this, e);
-		}
-
-		/// <summary>
-		/// Raises the <see cref="AfterLinkClicked"/> event.
-		/// </summary>
-		/// <param name="e">An PdfAfterLinkClickedEventArgs that contains the event data.</param>
-		protected virtual void OnAfterLinkClicked(PdfAfterLinkClickedEventArgs e)
-		{
-			if (AfterLinkClicked != null)
-				AfterLinkClicked(this, e);
-		}
-
-		/// <summary>
-		/// Raises the <see cref="RenderFlagsChanged"/> event.
-		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnRenderFlagsChanged(EventArgs e)
-		{
-			if (RenderFlagsChanged != null)
-				RenderFlagsChanged(this, e);
-		}
-
-		/// <summary>
-		/// Raises the <see cref="TilesCountChanged"/> event.
-		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnTilesCountChanged(EventArgs e)
-		{
-			if (TilesCountChanged != null)
-				TilesCountChanged(this, e);
-		}
-
-		/// <summary>
-		/// Raises the <see cref="HighlightedTextChanged"/> event.
-		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnHighlightedTextChanged(EventArgs e)
-		{
-			if (HighlightedTextChanged != null)
-				HighlightedTextChanged(this, e);
-		}
-		
-		/// <summary>
-		/// Raises the <see cref="MouseModeChanged"/> event.
-		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnMouseModeChanged(EventArgs e)
-		{
-			if (MouseModeChanged != null)
-				MouseModeChanged(this, e);
-		}
-		/// <summary>
-		/// Raises the <see cref="ShowLoadingIconChanged"/> event.
-		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnShowLoadingIconChanged(EventArgs e)
-		{
-			if (ShowLoadingIconChanged != null)
-				ShowLoadingIconChanged(this, e);
-		}
-
-		/// <summary>
-		/// Raises the <see cref="UseProgressiveRenderChanged"/> event.
-		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnUseProgressiveRenderChanged(EventArgs e)
-		{
-			if (UseProgressiveRenderChanged != null)
-				UseProgressiveRenderChanged(this, e);
-		}
-
-		/// <summary>
-		/// Raises the <see cref="LoadingIconTextChanged"/> event.
-		/// </summary>
-		/// <param name="e">An System.EventArgs that contains the event data.</param>
-		protected virtual void OnLoadingIconTextChanged(EventArgs e)
-		{
-			if (LoadingIconTextChanged != null)
-				LoadingIconTextChanged(this, e);
+			get { return (string)GetValue(LoadingIconTextProperty); }
+			set { SetValue(LoadingIconTextProperty, value); }
 		}
 		#endregion
 
-		#region Public properties
+		#region Public Properties
 		/// <summary>
 		/// Gets or sets the Forms object associated with the current PdfViewer control.
 		/// </summary>
@@ -539,372 +1127,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		public PdfForms FillForms { get { return _fillForms; } }
 
 		/// <summary>
-		/// Gets or sets the PDF document associated with the current PdfViewer control.
-		/// </summary>
-		public PdfDocument Document
-		{
-			get
-			{
-				return _document;
-			}
-			set
-			{
-					if (_document != value)
-					{
-						if (OnBeforeDocumentChanged(new DocumentClosingEventArgs()))
-							return;
-
-						if (_document != null && _loadedByViewer)
-						{
-							//we need to close the previous document if it was loaded by viewer
-							if (OnDocumentClosing(new DocumentClosingEventArgs()))
-								return; //the closing was canceled;
-							_document.Dispose();
-							_document = null;
-							OnDocumentClosed(EventArgs.Empty);
-						}
-						else if (_document != null && !_loadedByViewer)
-						{
-							_document.Pages.CurrentPageChanged -= Pages_CurrentPageChanged;
-							_document.Pages.PageInserted -= Pages_PageInserted;
-							_document.Pages.PageDeleted -= Pages_PageDeleted;
-							_document.Pages.ProgressiveRender -= Pages_ProgressiveRender;
-						}
-						_extent = new Size(0, 0);
-						_selectInfo = new SelectInfo() { StartPage = -1 };
-						_highlightedText.Clear();
-						_onstartPageIndex = 0;
-						_renderRects = null;
-						_loadedByViewer = false;
-						Pdfium.FPDF_ShowSplash(true);
-						ReleaseFillForms(_externalDocCapture);
-						_document = value;
-						UpdateDocLayout();
-						if (_document != null)
-						{
-							if (_document.FormFill != _fillForms)
-								_externalDocCapture = CaptureFillForms(_document.FormFill);
-							_document.Pages.CurrentPageChanged += Pages_CurrentPageChanged;
-							_document.Pages.PageInserted += Pages_PageInserted;
-							_document.Pages.PageDeleted += Pages_PageDeleted;
-							_document.Pages.ProgressiveRender += Pages_ProgressiveRender;
-							SetCurrentPage(_onstartPageIndex);
-							if (_document.Pages.Count > 0)
-								ScrollToPage(_onstartPageIndex);
-						}
-						OnAfterDocumentChanged(EventArgs.Empty);
-					}
-				}
-			}
-
-		/// <summary>
-		/// Gets or sets the background color for the control under PDF page.
-		/// </summary>
-		public Color PageBackColor
-		{
-			get
-			{
-				return _pageBackColor;
-			}
-			set
-			{
-				if (_pageBackColor != value)
-				{
-					_pageBackColor = value;
-					InvalidateVisual();
-					OnPageBackColorChanged(EventArgs.Empty);
-				}
-
-			}
-		}
-
-		/// <summary>
-		/// Specifies space between pages margins
-		/// </summary>
-		public Thickness PageMargin
-		{
-			get
-			{
-				return _pageMargin;
-			}
-			set
-			{
-				if (_pageMargin != value)
-				{
-					_pageMargin = value;
-					UpdateDocLayout();
-					OnPageMarginChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Gets or sets the padding inside a control.
-		/// </summary>
-		public new Thickness Padding
-		{
-			get
-			{
-				return base.Padding;
-			}
-			set
-			{
-				if (base.Padding != value)
-				{
-					base.Padding = value;
-					UpdateDocLayout();
-				}
-			}
-		}
-
-		/// <summary>
-		/// Gets or sets the border color of the page
-		/// </summary>
-		public Color PageBorderColor
-		{
-			get
-			{
-				return _pageBorderColor;
-			}
-			set
-			{
-				if (_pageBorderColor != value)
-				{
-					_pageBorderColor = value;
-					_pageBorderColorPen = Helpers.CreatePen(_pageBorderColor);
-					InvalidateVisual();
-					OnPageBorderColorChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Control how the PdfViewer will handle  pages placement and control sizing
-		/// </summary>
-		public SizeModes SizeMode
-		{
-			get
-			{
-				return _sizeMode;
-			}
-			set
-			{
-				if (_sizeMode != value)
-				{
-					_sizeMode = value;
-					UpdateDocLayout();
-					OnSizeModeChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Gets or sets the selection color of the control.
-		/// </summary>
-		public Color TextSelectColor
-		{
-			get
-			{
-				return _textSelectColor;
-			}
-			set
-			{
-				if (_textSelectColor != value)
-				{
-					_textSelectColor = value;
-					_selectColorBrush = Helpers.CreateBrush(_textSelectColor);
-					InvalidateVisual();
-					OnTextSelectColorChanged(EventArgs.Empty);
-				}
-
-			}
-		}
-
-		/// <summary>
-		/// Gets or set the highlight color of the form fields in the document.
-		/// </summary>
-		public Color FormHighlightColor
-		{
-			get
-			{
-				return _formHighlightColor;
-			}
-			set
-			{
-				if (_formHighlightColor != value)
-				{
-					_formHighlightColor = value;
-					if (_fillForms != null)
-						_fillForms.SetHighlightColorEx(FormFieldTypes.FPDF_FORMFIELD_UNKNOWN, Helpers.ToArgb(_formHighlightColor));
-					if (Document != null && !_loadedByViewer && _externalDocCapture.forms != null)
-						_externalDocCapture.forms.SetHighlightColorEx(FormFieldTypes.FPDF_FORMFIELD_UNKNOWN, Helpers.ToArgb(_formHighlightColor));
-					InvalidateVisual();
-					OnFormHighlightColorChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-		/// <summary>
-		/// This property allows you to scale the PDF page. To take effect the <see cref="SizeMode"/> property should be Zoom
-		/// </summary>
-		public float Zoom
-		{
-			get
-			{
-				return _zoom;
-			}
-			set
-			{
-				if (_zoom != value)
-				{
-					_zoom = value;
-					UpdateDocLayout();
-					OnZoomChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Gets selected text from PdfView control
-		/// </summary>
-		public string SelectedText
-		{
-			get
-			{
-				if (Document == null)
-					return "";
-
-				var selTmp = NormalizeSelectionInfo();
-
-				if (selTmp.StartPage < 0 || selTmp.StartIndex < 0)
-					return "";
-
-				string ret = "";
-				for (int i = selTmp.StartPage; i <= selTmp.EndPage; i++)
-				{
-					if (ret != "")
-						ret += "\r\n";
-
-					int s = 0;
-					if (i == selTmp.StartPage)
-						s = selTmp.StartIndex;
-
-					int len = Document.Pages[i].Text.CountChars;
-					if (i == selTmp.EndPage)
-						len = (selTmp.EndIndex + 1) - s;
-
-					ret += Document.Pages[i].Text.GetText(s, len);
-				}
-				return ret;
-			}
-		}
-
-		/// <summary>
 		/// Gets information about selected text in a PdfView control
 		/// </summary>
 		public SelectInfo SelectInfo { get { return NormalizeSelectionInfo(); } }
-
-		/// <summary>
-		/// Control how the PdfViewer will display pages
-		/// </summary>
-		public ViewModes ViewMode
-		{
-			get
-			{
-				return _viewMode;
-			}
-			set
-			{
-				if (_viewMode != value)
-				{
-					_viewMode = value;
-					UpdateDocLayout();
-					OnViewModeChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Gets or sets the page separator color.
-		/// </summary>
-		public Color PageSeparatorColor
-		{
-			get
-			{
-				return _pageSeparatorColor;
-			}
-			set
-			{
-				if (_pageSeparatorColor != value)
-				{
-					_pageSeparatorColor = value;
-					_pageSeparatorColorPen = Helpers.CreatePen(_pageSeparatorColor);
-					InvalidateVisual();
-					OnPageSeparatorColorChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Determines whether the page separator is visible or hidden
-		/// </summary>
-		public bool ShowPageSeparator
-		{
-			get
-			{
-				return _showPageSeparator;
-			}
-			set
-			{
-				if (_showPageSeparator != value)
-				{
-					_showPageSeparator = value;
-					InvalidateVisual();
-					OnShowPageSeparatorChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Gets or sets the current page highlight color.
-		/// </summary>
-		public Color CurrentPageHighlightColor
-		{
-			get
-			{
-				return _currentPageHighlightColor;
-			}
-			set
-			{
-				if (_currentPageHighlightColor != value)
-				{
-					_currentPageHighlightColor = value;
-					_currentPageHighlightColorPen = Helpers.CreatePen(_currentPageHighlightColor, 4);
-					InvalidateVisual();
-					OnCurrentPageHighlightColorChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Determines whether the current page's highlight is visible or hidden.
-		/// </summary>
-		public bool ShowCurrentPageHighlight
-		{
-			get
-			{
-				return _showCurrentPageHighlight;
-			}
-			set
-			{
-				if (_showCurrentPageHighlight != value)
-				{
-					_showCurrentPageHighlight = value;
-					InvalidateVisual();
-					OnShowCurrentPageHighlightChanged(EventArgs.Empty);
-				}
-			}
-		}
 
 		/// <summary>
 		/// Gets or sets the current index of a page in PdfPageCollection
@@ -937,168 +1162,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		public bool AllowSetDocument { get; set; }
 
 		/// <summary>
-		/// Gets or sets the vertical alignment of page in the control.
-		/// </summary>
-		public VerticalAlignment PageVAlign
-		{
-			get
-			{
-				return _pageVAlign;
-			}
-			set
-			{
-				if (_pageVAlign != value)
-				{
-					_pageVAlign = value;
-					UpdateDocLayout();
-					OnPageAlignChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Gets or sets the horizontal alignment of page in the control.
-		/// </summary>
-		public HorizontalAlignment PageHAlign
-		{
-			get
-			{
-				return _pageHAlign;
-			}
-			set
-			{
-				if (_pageHAlign != value)
-				{
-					_pageHAlign = value;
-					UpdateDocLayout();
-					OnPageAlignChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-
-		/// <summary>
-		/// Gets or sets a RenderFlags. None for normal display, or combination of <see cref="RenderFlags"/>
-		/// </summary>
-		public RenderFlags RenderFlags
-		{
-			get
-			{
-				return _renderFlags;
-			}
-			set
-			{
-				if (_renderFlags != value)
-				{
-					_renderFlags = value;
-					InvalidateVisual();
-					OnRenderFlagsChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Gets or sets visible page count for tiles view mode
-		/// </summary>
-		public int TilesCount
-		{
-			get
-			{
-				return _tilesCount;
-			}
-			set
-			{
-				int tmp = value < 2 ? 2 : value;
-				if (_tilesCount != tmp)
-				{
-					_tilesCount = tmp;
-					UpdateDocLayout();
-					OnTilesCountChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-		/// <summary>
 		/// Gets information about highlighted text in a PdfView control
 		/// </summary>
 		public SortedDictionary<int, List<HighlightInfo>> HighlightedTextInfo { get { return _highlightedText; } }
-
-		/// <summary>
-		/// Gets or sets mouse mode for PdfViewer control
-		/// </summary>
-		public MouseModes MouseMode
-		{
-			get
-			{
-				return _mouseMode;
-			}
-			set
-			{
-				if (_mouseMode != value)
-				{
-					_mouseMode = value;
-					OnMouseModeChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Determines whether the page's loading icon should be shown
-		/// </summary>
-		public bool ShowLoadingIcon
-		{
-			get
-			{
-				return _showLoadingIcon;
-			}
-			set
-			{
-				if (_showLoadingIcon != value)
-				{
-					_showLoadingIcon = value;
-					OnShowLoadingIconChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-		/// <summary>
-		/// If true the progressive rendering is used for render page
-		/// </summary>
-		public bool UseProgressiveRender
-		{
-			get
-			{
-				return _useProgressiveRender;
-			}
-			set
-			{
-				if (_useProgressiveRender != value)
-				{
-					UpdateDocLayout();
-					_useProgressiveRender = value;
-					OnUseProgressiveRenderChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Gets or sets loading icon text in progressive rendering mode
-		/// </summary>
-		public string LoadingIconText
-		{
-			get
-			{
-				return _loadingIconText;
-			}
-			set
-			{
-				if (_loadingIconText != value)
-				{
-					_loadingIconText = value;
-					OnLoadingIconTextChanged(EventArgs.Empty);
-				}
-			}
-		}
 		#endregion
 
 		#region Public methods
@@ -1265,8 +1331,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			};
 			_isShowSelection = true;
 			InvalidateVisual();
-			OnSelectionChanged(EventArgs.Empty);
-		}
+            GenerateSelectedTextProperty();
+        }
 
 		/// <summary>
 		/// Clear text selection
@@ -1278,8 +1344,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				StartPage = -1,
 			};
 			InvalidateVisual();
-			OnSelectionChanged(EventArgs.Empty);
-		}
+            GenerateSelectedTextProperty();
+        }
 
 		/// <summary>
 		/// Determines if the specified point is contained within Pdf page.
@@ -1538,7 +1604,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			try {
 				CloseDocument();
-				Document = PdfDocument.Load(path, _fillForms, password);
+                if (Document != null)
+                    return; //closing was canceled
+				var doc = PdfDocument.Load(path, _fillForms, password);
+                Document = doc;
+                if (Document == null)
+                {
+                    doc.Dispose(); //Can't set Document due to TwoWay binding mode
+                    return;
+                }
 				_loadedByViewer = true;
 				OnDocumentLoaded(EventArgs.Empty);
 			}
@@ -1570,8 +1644,16 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			try {
 				CloseDocument();
-				Document = PdfDocument.Load(stream, _fillForms, password);
-				_loadedByViewer = true;
+                if (Document != null)
+                    return; //closing was canceled
+                var doc = PdfDocument.Load(stream, _fillForms, password);
+                Document = doc;
+                if (Document == null)
+                {
+                    doc.Dispose(); //Can't set Document due to TwoWay binding mode
+                    return;
+                }
+                _loadedByViewer = true;
 				OnDocumentLoaded(EventArgs.Empty);
 			}
 			catch (NoLicenseException ex)
@@ -1602,8 +1684,16 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			try {
 				CloseDocument();
-				Document = PdfDocument.Load(pdf, _fillForms, password);
-				_loadedByViewer = true;
+                if (Document != null)
+                    return; //closing was canceled
+                var doc = PdfDocument.Load(pdf, _fillForms, password);
+                Document = doc;
+                if (Document == null)
+                {
+                    doc.Dispose(); //Can't set Document due to TwoWay binding mode
+                    return;
+                }
+                _loadedByViewer = true;
 				OnDocumentLoaded(EventArgs.Empty);
 			}
 			catch (NoLicenseException ex)
@@ -1628,28 +1718,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </summary>
 		public PdfViewer()
 		{
+			LoadingIconText = Properties.Resources.LoadingText;
 			Background = SystemColors.ControlDarkBrush;
-			PageBackColor = Color.FromArgb(255, 255, 255, 255);
-			PageBorderColor = Color.FromArgb(255, 0, 0, 0);
-			FormHighlightColor = Color.FromArgb(0, 255, 255, 255);
-			TextSelectColor = Color.FromArgb(70, 70, 130, 180);
-			Zoom = 1;
-			PageMargin = new Thickness(10);
-			Padding = new Thickness(10);
-			ViewMode = ViewModes.Vertical;
-			ShowPageSeparator = true;
-			PageSeparatorColor = Color.FromArgb(255, 190, 190, 190);
-			CurrentPageHighlightColor = Color.FromArgb(170, 70, 130, 180);
-			ShowCurrentPageHighlight = true;
-			PageVAlign = VerticalAlignment.Center;
-			PageHAlign = HorizontalAlignment.Center;
-			RenderFlags = RenderFlags.FPDF_LCD_TEXT | RenderFlags.FPDF_NO_CATCH;
-			TilesCount = 2;
-			ShowLoadingIcon = true;
-			UseProgressiveRender = true;
-
-			//InitializeComponent();
-
 			_fillForms = new PdfForms();
 			CaptureFillForms(_fillForms);
 		}
@@ -1914,9 +1984,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			if (Document != null)
 			{
 				if (_selectInfo.StartPage >= 0)
-					OnSelectionChanged(EventArgs.Empty);
+                    GenerateSelectedTextProperty();
 
-				Point page_point;
+                Point page_point;
 				var loc = e.GetPosition(this);
 				int idx = DeviceToPage(loc.X, loc.Y, out page_point);
 				if (idx >= 0)
@@ -2013,7 +2083,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		protected virtual void DrawPageBackColor(DrawingContext drawingContext, double x, double y, double width, double height)
 		{
 			Rect rect = new Rect(x, y, width, height);
-			Helpers.FillRectangle(drawingContext, Helpers.CreateBrush(_pageBackColor), rect);
+			Helpers.FillRectangle(drawingContext, Helpers.CreateBrush(PageBackColor), rect);
 		}
 
 		/// <summary>
@@ -2315,10 +2385,40 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			for (int sep = 0; sep < separator.Count; sep += 2)
 				drawingContext.DrawLine(_pageSeparatorColorPen, separator[sep], separator[sep + 1]);
 		}
-		#endregion
+        #endregion
 
-		#region Private methods
-		private CaptureInfo CaptureFillForms(PdfForms fillForms)
+        #region Private methods
+        private void GenerateSelectedTextProperty()
+        {
+            string ret = "";
+            if (Document != null)
+            {
+                var selTmp = NormalizeSelectionInfo();
+
+                if (selTmp.StartPage >= 0 && selTmp.StartIndex >= 0)
+                {
+                    for (int i = selTmp.StartPage; i <= selTmp.EndPage; i++)
+                    {
+                        if (ret != "")
+                            ret += "\r\n";
+
+                        int s = 0;
+                        if (i == selTmp.StartPage)
+                            s = selTmp.StartIndex;
+
+                        int len = Document.Pages[i].Text.CountChars;
+                        if (i == selTmp.EndPage)
+                            len = (selTmp.EndIndex + 1) - s;
+
+                        ret += Document.Pages[i].Text.GetText(s, len);
+                    }
+                }
+            }
+            SetValue(SelectedTextProperty, ret);
+            OnSelectionChanged(EventArgs.Empty);
+        }
+
+        private CaptureInfo CaptureFillForms(PdfForms fillForms)
 		{
 			var ret = new CaptureInfo();
 			if (fillForms == null)
@@ -2328,7 +2428,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			ret.sync = fillForms.SynchronizingObject;
 
 			fillForms.SynchronizingObject = new DispatcherISyncInvoke(Dispatcher);
-			ret.color = fillForms.SetHighlightColorEx(FormFieldTypes.FPDF_FORMFIELD_UNKNOWN, Helpers.ToArgb(_formHighlightColor));
+			ret.color = fillForms.SetHighlightColorEx(FormFieldTypes.FPDF_FORMFIELD_UNKNOWN, Helpers.ToArgb(FormHighlightColor));
 			fillForms.AppBeep += FormsAppBeep;
 			fillForms.DoGotoAction += FormsDoGotoAction;
 			fillForms.DoNamedAction += FormsDoNamedAction;
@@ -3413,8 +3513,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				};
 				_isShowSelection = true;
 				if (_selectInfo.StartPage >= 0)
-					OnSelectionChanged(EventArgs.Empty);
-				InvalidateVisual();
+                    GenerateSelectedTextProperty();
+                InvalidateVisual();
 			}
 		}
 
@@ -3424,13 +3524,13 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			{
 				StartPage = page_index,
 				EndPage = page_index,
-                StartIndex = Document.Pages[page_index].Text.GetCharIndexAtPos((float)page_point.X, (float)page_point.Y, 10.0f, 10.0f),
-				EndIndex = Document.Pages[page_index].Text.GetCharIndexAtPos((float)page_point.X, (float)page_point.Y, 10.0f, 10.0f)
+				StartIndex = Document.Pages[page_index].Text.GetCharIndexAtPos((float)page_point.X, (float)page_point.Y, 10.0f, 10.0f),
+				EndIndex = -1// Document.Pages[page_index].Text.GetCharIndexAtPos((float)page_point.X, (float)page_point.Y, 10.0f, 10.0f)
 			};
 			_isShowSelection = false;
 			if (_selectInfo.StartPage >= 0)
-				OnSelectionChanged(EventArgs.Empty);
-		}
+                GenerateSelectedTextProperty();
+        }
 
 		private void ProcessMouseMoveForSelectTextTool(int page_index, int character_index)
 		{
