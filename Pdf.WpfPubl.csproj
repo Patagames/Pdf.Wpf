@@ -54,6 +54,7 @@
     <Compile Include="MouseModes.cs" />
     <Compile Include="PdfViewer.cs" />
     <Compile Include="PRCollection.cs" />
+    <Compile Include="Print\BeforeRenderPageEventArgs.cs" />
     <Compile Include="Print\PagePrintedEventArgs.cs" />
     <Compile Include="Print\PdfDocumentPaginator.cs" />
     <Compile Include="Print\PdfPrint.cs" />

@@ -1532,8 +1532,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			_prPages.ReleaseCanvas(); //something changed. Release canvas
 			_viewport = new Size(ActualWidth, ActualHeight);
-			if (Document == null)
+			if (Document == null || Document.Pages.Count <= 0)
 			{
+				_renderRects = null;
 				InvalidateVisual();
 				return;
 			}
