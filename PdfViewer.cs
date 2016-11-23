@@ -2592,9 +2592,11 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			Size clientSize = ClientRect.Size;
 			if(ScrollOwner!= null)
 			{
+				double cw = ScrollOwner.ActualWidth - System.Windows.Forms.SystemInformation.VerticalScrollBarWidth;
+				double ch = ScrollOwner.ActualHeight - System.Windows.Forms.SystemInformation.HorizontalScrollBarHeight;
 				clientSize = new Size(
-					ScrollOwner.ActualWidth - System.Windows.Forms.SystemInformation.VerticalScrollBarWidth,
-					ScrollOwner.ActualHeight - System.Windows.Forms.SystemInformation.HorizontalScrollBarHeight
+					cw < 0.000001 ? 0.000001 : cw,
+					ch < 0.000001 ? 0.000001 : ch
 					);
 			}
 
@@ -2632,9 +2634,11 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			Size clientSize = ClientRect.Size;
 			if (ScrollOwner != null)
 			{
+				double cw = ScrollOwner.ActualWidth - System.Windows.Forms.SystemInformation.VerticalScrollBarWidth;
+				double ch = ScrollOwner.ActualHeight - System.Windows.Forms.SystemInformation.HorizontalScrollBarHeight;
 				clientSize = new Size(
-					ScrollOwner.ActualWidth - System.Windows.Forms.SystemInformation.VerticalScrollBarWidth,
-					ScrollOwner.ActualHeight - System.Windows.Forms.SystemInformation.HorizontalScrollBarHeight
+					cw < 0.000001 ? 0.000001 : cw,
+					ch < 0.000001 ? 0.000001 : ch
 					);
 			}
 
