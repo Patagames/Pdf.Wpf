@@ -2383,6 +2383,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </remarks>
 		protected virtual void DrawPageSeparators(DrawingContext drawingContext, ref List<Point> separator)
 		{
+			if (separator == null || !ShowPageSeparator)
+				return;
+
 			for (int sep = 0; sep < separator.Count; sep += 2)
 				drawingContext.DrawLine(_pageSeparatorColorPen, separator[sep], separator[sep + 1]);
 		}
