@@ -885,6 +885,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 						var viewer = (o as PdfViewer);
 						viewer.OnLoadingIconTextChanged(EventArgs.Empty);
 					}));
+
+		/// <summary>
+		/// DependencyProperty as the backing store for <see cref="PageAutoDispose"/>
+		/// </summary>
+		public static readonly DependencyProperty PageAutoDisposeProperty =
+			DependencyProperty.Register("PageAutoDispose", typeof(bool), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.Journal));
+
 		#endregion
 
 		#region Public properties (dependency)
@@ -1116,6 +1124,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			get { return (string)GetValue(LoadingIconTextProperty); }
 			set { SetValue(LoadingIconTextProperty, value); }
+		}
+
+		/// <summary>
+		/// Gets or sets a value indicating whether the PdfViewer will dispose any pages placed outside of its visible boundaries.
+		/// </summary>
+		public bool PageAutoDispose
+		{
+			get { return (bool)GetValue(PageAutoDisposeProperty); }
+			set { SetValue(PageAutoDisposeProperty, value); }
 		}
 		#endregion
 
@@ -1799,7 +1816,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					Rect actualRect = CalcActualRect(i);
 					if (!actualRect.IntersectsWith(ClientRect))
 					{
-						Document.Pages[i].Dispose();
+						if(PageAutoDispose)
+							Document.Pages[i].Dispose();
 						continue; //Page is invisible. Skip it
 					}
 
@@ -2911,7 +2929,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					var prevIdx = Document.Pages.CurrentIndex;
 					Document.Pages.CurrentIndex = index;
 					OnCurrentPageChanged(EventArgs.Empty);
-					if (ViewMode == ViewModes.SinglePage && prevIdx > 0 && prevIdx < Document.Pages.Count)
+					if (ViewMode == ViewModes.SinglePage && prevIdx > 0 && prevIdx < Document.Pages.Count && PageAutoDispose)
 						Document.Pages[prevIdx].Dispose();
 				}
 			}
