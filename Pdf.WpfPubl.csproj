@@ -64,6 +64,7 @@
     <Compile Include="Print\PrintProgress.xaml.cs">
       <DependentUpon>PrintProgress.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Print\PrintSizeMode.cs" />
     <Compile Include="Print\ThreadSafePrintDialog.cs" />
     <Compile Include="PRItem.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
