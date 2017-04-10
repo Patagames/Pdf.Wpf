@@ -1821,6 +1821,11 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 						continue; //Page is invisible. Skip it
 					}
 
+					//Load page if need
+					var pageHandle = Document.Pages[i].Handle;
+					if (_prPages.CanvasBitmap == null)
+						_prPages.InitCanvas(new Helpers.Int32Size() { Width = cw, Height = ch }); //The canvas was dropped due to the execution of scripts on the page while it loading.
+
 					//Draw page background
 					DrawPageBackColor(drawingContext, actualRect.X, actualRect.Y, actualRect.Width, actualRect.Height);
 					//Draw page
