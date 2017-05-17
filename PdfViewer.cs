@@ -1870,6 +1870,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 				if (!allPagesAreRendered)
 					StartInvalidateTimer();
+				else if ((RenderFlags & (RenderFlags.FPDF_THUMBNAIL | RenderFlags.FPDF_HQTHUMBNAIL)) != 0)
+					_prPages.ReleaseCanvas();
 				else if (!UseProgressiveRender)
 					_prPages.ReleaseCanvas();
 
