@@ -1,6 +1,8 @@
-﻿using System;
+﻿using Patagames.Pdf.Enums;
+using System;
 using System.Collections.Generic;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 
@@ -40,6 +42,49 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 				(this.Items[0] as SearchBar).SearchText = value;
 			}
 		}
+
+		/// <summary>
+		/// Gets or sets search flags
+		/// </summary>
+		public FindFlags SearchFlags
+		{
+			get
+			{
+				return (this.Items[0] as SearchBar).FindFlags;
+			}
+			set
+			{
+				(this.Items[0] as SearchBar).FindFlags = value;
+			}
+		}
+		
+		/// <summary>
+		/// Gets or sets the current found record
+		/// </summary>
+		public int CurrentRecord
+		{
+			get
+			{
+				return (this.Items[0] as SearchBar).CurrentRecord;
+			}
+			set
+			{
+				(this.Items[0] as SearchBar).CurrentRecord = value;
+			}
+		}
+
+		/// <summary>
+		/// Gets the total number of found records
+		/// </summary>
+		public int TotalRecords
+		{
+			get
+			{
+				return (this.Items[0] as SearchBar).TotalRecords;
+			}
+		}
+
+
 		#endregion
 
 		#region Constructors
@@ -162,30 +207,35 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 		#region Event handlers for buttons
 		private void SearchBar_NeedSearch(object sender, EventArgs e)
 		{
-			var item = this.Items[0] as SearchBar;
-			OnNeedSearch(item, item.SearchText);
+			OnNeedSearch(SearchFlags, SearchText);
 		}
 
 		private void SearchBar_CurrentRecordChanged(object sender, EventArgs e)
 		{
-			var item = this.Items[0] as SearchBar;
-			OnCurrentRecordChanged(item, item.CurrentRecord);
+			OnCurrentRecordChanged(CurrentRecord, TotalRecords);
 		}
 
 		#endregion
 
 		#region Protected methods
-		private void OnCurrentRecordChanged(SearchBar item, int currentRecord)
+		/// <summary>
+		/// Called when current recordchanged
+		/// </summary>
+		/// <param name="currentRecord">The number of current record</param>
+		/// <param name="totalRecords">The total number of records</param>
+		protected virtual void OnCurrentRecordChanged(int currentRecord, int totalRecords)
 		{
 			ScrollToRecord(currentRecord);
 		}
 
-		private void OnNeedSearch(SearchBar item, string searchText)
+		/// <summary>
+		/// Called when the search routine should be launched
+		/// </summary>
+		/// <param name="searchFlags">Search flags</param>
+		/// <param name="searchText">Text for search</param>
+		protected virtual  void OnNeedSearch(FindFlags searchFlags, string searchText)
 		{
-			var tssb = item as SearchBar;
-			if (tssb == null)
-				return;
-			StartSearch(tssb, searchText);
+			StartSearch(searchFlags, searchText);
 		}
 
 		#endregion
@@ -209,12 +259,12 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			newValue.DocumentClosed += PdfViewer_DocumentClosed;
 		}
 
-		private void StartSearch(SearchBar sb, string searchText)
+		private void StartSearch(FindFlags searchFlags, string searchText)
 		{
 			StopSearch();
 			if (searchText == "")
 				return;
-			_search.Start(searchText, sb.FindFlags);
+			_search.Start(searchText, searchFlags);
 			_foundTextTimer.Start();
 		}
 

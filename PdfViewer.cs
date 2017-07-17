@@ -51,7 +51,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
         private System.Windows.Threading.DispatcherTimer _invalidateTimer = null;
 
         WriteableBitmap _canvasWpfBitmap = null;
-        WriteableBitmap _formsWpfBitmap = null;
         private bool _loadedByViewer = true;
 
         private struct CaptureInfo
@@ -1593,6 +1592,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <returns>Calculated rectangle</returns>
 		public Rect CalcActualRect(int index)
 		{
+			if (_renderRects == null)
+				return default(Rect);
+
 			var rect = renderRects(index);
 			rect.X += _autoScrollPosition.X;
 			rect.Y += _autoScrollPosition.Y;
@@ -1787,6 +1789,19 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system. </param>
 		/// <remarks>
 		/// The OnRender method can be overridden to add further graphical elements (not previously defined in a logical tree) to a rendered element, such as effects or adorners. A DrawingContext object is passed as an argument, which provides methods for drawing shapes, text, images or videos.
+		/// Full page rendering is performed in the following order:
+		/// <list type="bullet">
+		/// <item><see cref="DrawPageBackColor"/></item>
+		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
+		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
+		/// <item><see cref="DrawPageSeparators"/></item>
+		/// <item><see cref="DrawPageBorder"/></item>
+		/// <item><see cref="DrawFillFormsSelection"/></item>
+		/// <item><see cref="DrawTextHighlight"/></item>
+		/// <item><see cref="DrawTextSelection"/></item>
+		/// <item><see cref="DrawCurrentPageHighlight"/></item>
+		/// </list>
 		/// </remarks>
 		protected override void OnRender(DrawingContext drawingContext)
 		{
@@ -1809,6 +1824,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				_prPages.InitCanvas(new Helpers.Int32Size() { Width = cw, Height = ch });
 				bool allPagesAreRendered = true;
 
+				PdfBitmap formsBitmap = null;
 				//Drawing PART 1. Page content into canvas and some other things
 				for (int i = _startPage; i <= _endPage; i++)
 				{
@@ -1833,7 +1849,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					allPagesAreRendered &= isPageDrawn;
 
 					if (isPageDrawn)  //Draw fill forms
-						DrawFillForms(_prPages.FormsBitmap, Document.Pages[i], actualRect);
+						DrawFillForms(formsBitmap ?? (formsBitmap = new PdfBitmap(_prPages.CanvasSize.Width, _prPages.CanvasSize.Height, true)), Document.Pages[i], actualRect);
 					else if (ShowLoadingIcon) //or loading icons
 						DrawLoadingIcon(drawingContext, Document.Pages[i], actualRect);
 					
@@ -1842,7 +1858,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				}
 
 				//Draw canvas
-				allPagesAreRendered = DrawCanvasToContext(drawingContext, cw, ch, allPagesAreRendered);
+				DrawRenderedPagesToDevice(drawingContext, _prPages.CanvasBitmap, formsBitmap, _prPages.CanvasSize.Width, _prPages.CanvasSize.Height);
+				if (formsBitmap != null)
+					formsBitmap.Dispose();
 
 				//Draw pages separators
 				DrawPageSeparators(drawingContext, ref separator);
@@ -2096,14 +2114,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// Full page rendering is performed in the following order:
 		/// <list type="bullet">
 		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> / <see cref="DrawLoadingIcon"/></item>
+		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
+		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
 		/// <item><see cref="DrawFillFormsSelection"/></item>
 		/// <item><see cref="DrawTextHighlight"/></item>
 		/// <item><see cref="DrawTextSelection"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
 		/// </list>
 		/// </remarks>
 		protected virtual void DrawPageBackColor(DrawingContext drawingContext, double x, double y, double width, double height)
@@ -2122,14 +2141,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// Full page rendering is performed in the following order:
 		/// <list type="bullet">
 		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> / <see cref="DrawLoadingIcon"/></item>
+		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
+		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
 		/// <item><see cref="DrawFillFormsSelection"/></item>
 		/// <item><see cref="DrawTextHighlight"/></item>
 		/// <item><see cref="DrawTextSelection"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
 		/// </list>
 		/// </remarks>
 		/// <returns>true if page was rendered; false if any error is occurred or page is still rendering.</returns>
@@ -2158,14 +2178,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// Full page rendering is performed in the following order:
 		/// <list type="bullet">
 		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> / <see cref="DrawLoadingIcon"/></item>
+		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
+		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
 		/// <item><see cref="DrawFillFormsSelection"/></item>
 		/// <item><see cref="DrawTextHighlight"/></item>
 		/// <item><see cref="DrawTextSelection"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
 		/// </list>
 		/// </remarks>
 		protected virtual void DrawFillForms(PdfBitmap bmp, PdfPage page, Rect actualRect)
@@ -2189,14 +2210,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// Full page rendering is performed in the following order:
 		/// <list type="bullet">
 		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> / <see cref="DrawLoadingIcon"/></item>
+		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
+		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
 		/// <item><see cref="DrawFillFormsSelection"/></item>
 		/// <item><see cref="DrawTextHighlight"/></item>
 		/// <item><see cref="DrawTextSelection"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
 		/// </list>
 		/// </remarks>
 		protected virtual void DrawLoadingIcon(DrawingContext drawingContext, PdfPage page, Rect actualRect)
@@ -2229,14 +2251,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// Full page rendering is performed in the following order:
 		/// <list type="bullet">
 		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> / <see cref="DrawLoadingIcon"/></item>
+		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
+		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
 		/// <item><see cref="DrawFillFormsSelection"/></item>
 		/// <item><see cref="DrawTextHighlight"/></item>
 		/// <item><see cref="DrawTextSelection"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
 		/// </list>
 		/// </remarks>
 		protected virtual void DrawPageBorder(DrawingContext drawingContext, Rect BBox)
@@ -2253,14 +2276,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// Full page rendering is performed in the following order:
 		/// <list type="bullet">
 		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> / <see cref="DrawLoadingIcon"/></item>
+		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
+		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
 		/// <item><see cref="DrawFillFormsSelection"/></item>
 		/// <item><see cref="DrawTextHighlight"/></item>
 		/// <item><see cref="DrawTextSelection"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
 		/// </list>
 		/// </remarks>
 		protected virtual void DrawFillFormsSelection(DrawingContext drawingContext)
@@ -2279,14 +2303,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// Full page rendering is performed in the following order:
 		/// <list type="bullet">
 		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> / <see cref="DrawLoadingIcon"/></item>
+		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
+		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
 		/// <item><see cref="DrawFillFormsSelection"/></item>
 		/// <item><see cref="DrawTextHighlight"/></item>
 		/// <item><see cref="DrawTextSelection"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
 		/// </list>
 		/// </remarks>
 		protected virtual void DrawTextHighlight(DrawingContext drawingContext, List<HighlightInfo> entries, int pageIndex)
@@ -2317,14 +2342,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// Full page rendering is performed in the following order:
 		/// <list type="bullet">
 		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> / <see cref="DrawLoadingIcon"/></item>
+		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
+		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
 		/// <item><see cref="DrawFillFormsSelection"/></item>
 		/// <item><see cref="DrawTextHighlight"/></item>
 		/// <item><see cref="DrawTextSelection"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
 		/// </list>
 		/// </remarks>
 		protected virtual void DrawTextSelection(DrawingContext drawingContext, SelectInfo selInfo, int pageIndex)
@@ -2368,14 +2394,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// Full page rendering is performed in the following order:
 		/// <list type="bullet">
 		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> / <see cref="DrawLoadingIcon"/></item>
+		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
+		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
 		/// <item><see cref="DrawFillFormsSelection"/></item>
 		/// <item><see cref="DrawTextHighlight"/></item>
 		/// <item><see cref="DrawTextSelection"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
 		/// </list>
 		/// </remarks>
 		protected virtual void DrawCurrentPageHighlight(DrawingContext drawingContext, int pageIndex, Rect actualRect)
@@ -2388,6 +2415,57 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		}
 
 		/// <summary>
+		/// Combine two buffers (rendered pages and forms) and draw them to graphics
+		/// </summary>
+		/// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
+		/// <param name="canvasBitmap">Bitmap with rendered pages</param>
+		/// <param name="formsBitmap">Bitmap with rendered forms</param>
+		/// <param name="canvasWidth">Width of buffer</param>
+		/// <param name="canvasHeight">Height of buffer</param>
+		/// <remarks>
+		/// This method should combine bitmaps with alpha blending and draw result to graphics surface.
+		/// Full page rendering is performed in the following order:
+		/// <list type="bullet">
+		/// <item><see cref="DrawPageBackColor"/></item>
+		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
+		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
+		/// <item><see cref="DrawPageSeparators"/></item>
+		/// <item><see cref="DrawPageBorder"/></item>
+		/// <item><see cref="DrawFillFormsSelection"/></item>
+		/// <item><see cref="DrawTextHighlight"/></item>
+		/// <item><see cref="DrawTextSelection"/></item>
+		/// <item><see cref="DrawCurrentPageHighlight"/></item>
+		/// </list>
+		/// </remarks>
+		protected virtual void DrawRenderedPagesToDevice(DrawingContext drawingContext, PdfBitmap canvasBitmap, PdfBitmap formsBitmap, int canvasWidth, int canvasHeight)
+		{
+			//Convert PdfBitmap into Wpf WriteableBitmap
+			int canvasStride = _prPages.CanvasBitmap.Stride;
+			if (_canvasWpfBitmap == null || _canvasWpfBitmap.PixelWidth != canvasWidth || _canvasWpfBitmap.PixelHeight != canvasHeight)
+				_canvasWpfBitmap = new WriteableBitmap(canvasWidth, canvasHeight, Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
+
+
+			if (formsBitmap == null)
+				_canvasWpfBitmap.WritePixels(new Int32Rect(0, 0, canvasWidth, canvasHeight), canvasBitmap.Buffer, canvasStride * canvasHeight, canvasStride, 0, 0);
+			else
+			{
+				using (var combinedBitmap = canvasBitmap.Clone())
+				{
+					Pdfium.FPDFBitmap_CompositeBitmap(
+						combinedBitmap.Handle,
+						0, 0,
+						canvasWidth, canvasHeight,
+						formsBitmap.Handle,
+						0, 0,
+						BlendTypes.FXDIB_BLEND_COLOR);
+					_canvasWpfBitmap.WritePixels(new Int32Rect(0, 0, canvasWidth, canvasHeight), combinedBitmap.Buffer, canvasStride * canvasHeight, canvasStride, 0, 0);
+				}
+			}
+			Helpers.DrawImageUnscaled(drawingContext, _canvasWpfBitmap, 0, 0);
+		}
+
+		/// <summary>
 		/// Draws pages separatoes.
 		/// </summary>
 		/// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
@@ -2396,14 +2474,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// Full page rendering is performed in the following order:
 		/// <list type="bullet">
 		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> / <see cref="DrawLoadingIcon"/></item>
+		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
+		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
 		/// <item><see cref="DrawFillFormsSelection"/></item>
 		/// <item><see cref="DrawTextHighlight"/></item>
 		/// <item><see cref="DrawTextSelection"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
 		/// </list>
 		/// </remarks>
 		protected virtual void DrawPageSeparators(DrawingContext drawingContext, ref List<Point> separator)
@@ -2481,30 +2560,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			captureInfo.forms.SetCursor -= FormsSetCursor;
 			captureInfo.forms.SynchronizationContext = captureInfo.sync;
 			captureInfo.forms.SetHighlightColorEx(FormFieldTypes.FPDF_FORMFIELD_UNKNOWN, captureInfo.color);
-		}
-
-		private bool DrawCanvasToContext(DrawingContext drawingContext, int cw, int ch, bool allPagesAreRendered)
-		{
-			//Convert PdfBitmap into Wpf WriteableBitmap
-			int canvasStride = _prPages.CanvasBitmap.Stride;
-			int formsStride = _prPages.FormsBitmap.Stride;
-			if (_canvasWpfBitmap == null || _canvasWpfBitmap.PixelWidth != cw || _canvasWpfBitmap.PixelHeight != ch)
-			{
-				_canvasWpfBitmap = new WriteableBitmap(cw, ch, Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
-				_formsWpfBitmap = new WriteableBitmap(cw, ch, Helpers.Dpi, Helpers.Dpi, PixelFormats.Bgra32, null);
-			}
-			if (_prPages.CanvasSize.Width == cw && _prPages.CanvasSize.Height == ch)
-			{
-				_canvasWpfBitmap.WritePixels(new Int32Rect(0, 0, cw, ch), _prPages.CanvasBitmap.Buffer, canvasStride * ch, canvasStride, 0, 0);
-				_formsWpfBitmap.WritePixels(new Int32Rect(0, 0, cw, ch), _prPages.FormsBitmap.Buffer, formsStride * ch, formsStride, 0, 0);
-			}
-			else
-				allPagesAreRendered = true;
-
-			//Draw Canvas bitmap
-			Helpers.DrawImageUnscaled(drawingContext, _canvasWpfBitmap, 0, 0);
-			Helpers.DrawImageUnscaled(drawingContext, _formsWpfBitmap, 0, 0);
-			return allPagesAreRendered;
 		}
 
 		private void CalcAndSetCurrentPage()
