@@ -207,16 +207,21 @@ namespace Patagames.Pdf.Net.Controls.Wpf
         /// Occurs when the value of the <see cref="LoadingIconText"/> property has changed.
         /// </summary>
         public event EventHandler LoadingIconTextChanged;
+		
+		/// <summary>
+		/// Occurs when the <see cref="FormsBlendMode"/> property has changed.
+		/// </summary>
+		public event EventHandler FormsBlendModeChanged;
 
 
-        #endregion
+		#endregion
 
-        #region Event raises
-        /// <summary>
-        /// Raises the <see cref="AfterDocumentChanged"/> event.
-        /// </summary>
-        /// <param name="e">An System.EventArgs that contains the event data.</param>
-        protected virtual void OnAfterDocumentChanged(EventArgs e)
+		#region Event raises
+		/// <summary>
+		/// Raises the <see cref="AfterDocumentChanged"/> event.
+		/// </summary>
+		/// <param name="e">An System.EventArgs that contains the event data.</param>
+		protected virtual void OnAfterDocumentChanged(EventArgs e)
         {
             if (AfterDocumentChanged != null)
                 AfterDocumentChanged(this, e);
@@ -504,9 +509,28 @@ namespace Patagames.Pdf.Net.Controls.Wpf
             if (LoadingIconTextChanged != null)
                 LoadingIconTextChanged(this, e);
         }
+
+		/// <summary>
+		/// Raises the <see cref="FormsBlendModeChanged"/> event.
+		/// </summary>
+		/// <param name="e">An System.EventArgs that contains the event data.</param>
+		protected virtual void OnFormsBlendModeChanged(EventArgs e)
+		{
+			if (FormsBlendModeChanged != null)
+				FormsBlendModeChanged(this, e);
+		}
 		#endregion
 
 		#region Dependency properties
+		/// <summary>
+		/// DependencyProperty as the backing store for <see cref="FormsBlendMode"/>
+		/// </summary>
+		public static readonly DependencyProperty FormsBlendModeProperty =
+			DependencyProperty.Register("FormsBlendMode", typeof(BlendTypes), typeof(PdfViewer),
+				new FrameworkPropertyMetadata(BlendTypes.FXDIB_BLEND_MULTIPLY,
+					FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.Journal,
+					(o, e) => { (o as PdfViewer).OnFormsBlendModeChanged(EventArgs.Empty); }));
+
 		/// <summary>
 		/// DependencyProperty as the backing store for <see cref="PdfViewer"/>
 		/// </summary>
@@ -895,6 +919,19 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		#endregion
 
 		#region Public properties (dependency)
+		/// <summary>
+		/// Gets or sets blend mode which is used in drawing of acro forms.
+		/// </summary>
+		/// <remarks>
+		/// <para>Default value: <strong>FXDIB_BLEND_MULTIPLY</strong></para>
+		/// </remarks>
+		public BlendTypes FormsBlendMode
+		{
+			get { return (BlendTypes)GetValue(FormsBlendModeProperty); }
+			set { SetValue(FormsBlendModeProperty, value); }
+		}
+
+
 		/// <summary>
 		/// Gets or sets the PDF document associated with the current PdfViewer control.
 		/// </summary>
@@ -2458,7 +2495,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 						canvasWidth, canvasHeight,
 						formsBitmap.Handle,
 						0, 0,
-						BlendTypes.FXDIB_BLEND_COLOR);
+						FormsBlendMode);
 					_canvasWpfBitmap.WritePixels(new Int32Rect(0, 0, canvasWidth, canvasHeight), combinedBitmap.Buffer, canvasStride * canvasHeight, canvasStride, 0, 0);
 				}
 			}
