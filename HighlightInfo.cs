@@ -28,13 +28,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			set
 			{
 				if (_color != value)
-				{
 					_color = value;
-					Brush = new SolidColorBrush(_color);
-				}
 			}
 		}
-
-		internal Brush Brush { get; private set; }
 	}
 }

@@ -34,7 +34,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
         private PdfForms _fillForms;
         private List<Rect> _selectedRectangles = new List<Rect>();
         private Pen _pageBorderColorPen = Helpers.CreatePen((Color)PageBorderColorProperty.DefaultMetadata.DefaultValue);
-        private Brush _selectColorBrush = Helpers.CreateBrush((Color)TextSelectColorProperty.DefaultMetadata.DefaultValue);
         private Pen _pageSeparatorColorPen = Helpers.CreatePen((Color)PageSeparatorColorProperty.DefaultMetadata.DefaultValue);
 		private Pen _currentPageHighlightColorPen = Helpers.CreatePen((Color)CurrentPageHighlightColorProperty.DefaultMetadata.DefaultValue, 4);
 
@@ -686,7 +685,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					(o, e) =>
 					{
 						var viewer = (o as PdfViewer);
-						viewer._selectColorBrush = Helpers.CreateBrush((Color)e.NewValue);
 						viewer.OnTextSelectColorChanged(EventArgs.Empty);
 					}));
 
@@ -1831,12 +1829,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <item><see cref="DrawPageBackColor"/></item>
 		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
 		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection"/></item>
-		/// <item><see cref="DrawTextHighlight"/></item>
-		/// <item><see cref="DrawTextSelection"/></item>
+		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
 		/// </list>
 		/// </remarks>
@@ -1886,7 +1887,13 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					allPagesAreRendered &= isPageDrawn;
 
 					if (isPageDrawn)  //Draw fill forms
+					{
 						DrawFillForms(formsBitmap ?? (formsBitmap = new PdfBitmap(_prPages.CanvasSize.Width, _prPages.CanvasSize.Height, true)), Document.Pages[i], actualRect);
+						DrawFillFormsSelection(formsBitmap, _selectedRectangles);
+						if (_highlightedText.ContainsKey(i))
+							DrawTextHighlight(formsBitmap, _highlightedText[i], i);
+						DrawTextSelection(formsBitmap, selTmp, i);
+					}
 					else if (ShowLoadingIcon) //or loading icons
 						DrawLoadingIcon(drawingContext, Document.Pages[i], actualRect);
 					
@@ -1913,7 +1920,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					//Draw page border
 					DrawPageBorder(drawingContext, actualRect);
 					//Draw fillforms selection
-					DrawFillFormsSelection(drawingContext);
+					DrawFillFormsSelection(drawingContext, _selectedRectangles);
 					//Draw text highlight
 					if (_highlightedText.ContainsKey(i))
 						DrawTextHighlight(drawingContext, _highlightedText[i], i);
@@ -2153,12 +2160,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <item><see cref="DrawPageBackColor"/></item>
 		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
 		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection"/></item>
-		/// <item><see cref="DrawTextHighlight"/></item>
-		/// <item><see cref="DrawTextSelection"/></item>
+		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
 		/// </list>
 		/// </remarks>
@@ -2180,12 +2190,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <item><see cref="DrawPageBackColor"/></item>
 		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
 		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection"/></item>
-		/// <item><see cref="DrawTextHighlight"/></item>
-		/// <item><see cref="DrawTextSelection"/></item>
+		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
 		/// </list>
 		/// </remarks>
@@ -2217,12 +2230,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <item><see cref="DrawPageBackColor"/></item>
 		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
 		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection"/></item>
-		/// <item><see cref="DrawTextHighlight"/></item>
-		/// <item><see cref="DrawTextSelection"/></item>
+		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
 		/// </list>
 		/// </remarks>
@@ -2237,6 +2253,145 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			page.RenderForms(bmp, x, y, width, height, PageRotation(page), RenderFlags);
 		}
 
+
+		/// <summary>
+		/// Draws highlights inside a forms
+		/// </summary>
+		/// <param name="bitmap">The drawing context.</param>
+		/// <param name="selectedRectangles">A collection of rectangles to be drawn</param>
+		/// <remarks>
+		/// Full page rendering is performed in the following order:
+		/// <list type="bullet">
+		/// <item><see cref="DrawPageBackColor"/></item>
+		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
+		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
+		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
+		/// <item><see cref="DrawPageSeparators"/></item>
+		/// <item><see cref="DrawPageBorder"/></item>
+		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
+		/// <item><see cref="DrawCurrentPageHighlight"/></item>
+		/// </list>
+		/// </remarks>
+		protected virtual void DrawFillFormsSelection(PdfBitmap bitmap, List<Rect> selectedRectangles)
+		{
+			if (selectedRectangles == null)
+				return;
+			foreach (var selectRc in selectedRectangles)
+			{
+				int x = (int)(selectRc.X * Helpers.Dpi / 72);
+				int y = (int)(selectRc.Y * Helpers.Dpi / 72);
+				int w = (int)(selectRc.Width * Helpers.Dpi / 72);
+				int h = (int)(selectRc.Height * Helpers.Dpi / 72);
+
+				bitmap.FillRectEx(x, y, w, h, Helpers.ToArgb(TextSelectColor));
+			}
+		}
+
+		/// <summary>
+		/// Draws text highlights
+		/// </summary>
+		/// <param name="bitmap">The drawing context.</param>
+		/// <param name="entries">Highlights info.</param>
+		/// <param name="pageIndex">Page index to be drawn</param>
+		/// <remarks>
+		/// Full page rendering is performed in the following order:
+		/// <list type="bullet">
+		/// <item><see cref="DrawPageBackColor"/></item>
+		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
+		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
+		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
+		/// <item><see cref="DrawPageSeparators"/></item>
+		/// <item><see cref="DrawPageBorder"/></item>
+		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
+		/// <item><see cref="DrawCurrentPageHighlight"/></item>
+		/// </list>
+		/// </remarks>
+		protected virtual void DrawTextHighlight(PdfBitmap bitmap, List<HighlightInfo> entries, int pageIndex)
+		{
+			if (entries == null)
+				return;
+
+			foreach (var e in entries)
+			{
+				var textInfo = Document.Pages[pageIndex].Text.GetTextInfo(e.CharIndex, e.CharsCount);
+				foreach (var rc in textInfo.Rects)
+				{
+					var pt1 = PageToDevice(rc.left, rc.top, pageIndex);
+					var pt2 = PageToDevice(rc.right, rc.bottom, pageIndex);
+					int x = (int)((pt1.X < pt2.X ? pt1.X : pt2.X) * Helpers.Dpi / 72);
+					int y = (int)((pt1.Y < pt2.Y ? pt1.Y : pt2.Y) * Helpers.Dpi / 72);
+					int w = (int)((pt1.X > pt2.X ? pt1.X - pt2.X : pt2.X - pt1.X) * Helpers.Dpi / 72);
+					int h = (int)((pt1.Y > pt2.Y ? pt1.Y - pt2.Y : pt2.Y - pt1.Y) * Helpers.Dpi / 72);
+
+					bitmap.FillRectEx(x, y, w, h, Helpers.ToArgb(e.Color));
+				}
+			}
+		}
+
+		/// <summary>
+		/// Draws text selection
+		/// </summary>
+		/// <param name="bitmap">The drawing context.</param>
+		/// <param name="selInfo">Selection info</param>
+		/// <param name="pageIndex">Page index to be drawn</param>
+		/// <remarks>
+		/// Full page rendering is performed in the following order:
+		/// <list type="bullet">
+		/// <item><see cref="DrawPageBackColor"/></item>
+		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
+		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
+		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
+		/// <item><see cref="DrawPageSeparators"/></item>
+		/// <item><see cref="DrawPageBorder"/></item>
+		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
+		/// <item><see cref="DrawCurrentPageHighlight"/></item>
+		/// </list>
+		/// </remarks>
+		protected virtual void DrawTextSelection(PdfBitmap bitmap, SelectInfo selInfo, int pageIndex)
+		{
+			if (selInfo.StartPage < 0 || !_isShowSelection)
+				return;
+			if (pageIndex >= selInfo.StartPage && pageIndex <= selInfo.EndPage)
+			{
+				int s = 0;
+				if (pageIndex == selInfo.StartPage)
+					s = selInfo.StartIndex;
+
+				int len = Document.Pages[pageIndex].Text.CountChars;
+				if (pageIndex == selInfo.EndPage)
+					len = (selInfo.EndIndex + 1) - s;
+
+				var ti = Document.Pages[pageIndex].Text.GetTextInfo(s, len);
+				foreach (var rc in ti.Rects)
+				{
+					var pt1 = PageToDevice(rc.left, rc.top, pageIndex);
+					var pt2 = PageToDevice(rc.right, rc.bottom, pageIndex);
+
+					int x = (int)((pt1.X < pt2.X ? pt1.X : pt2.X) * Helpers.Dpi / 72);
+					int y = (int)((pt1.Y < pt2.Y ? pt1.Y : pt2.Y) * Helpers.Dpi / 72);
+					int w = (int)((pt1.X > pt2.X ? pt1.X - pt2.X : pt2.X - pt1.X) * Helpers.Dpi / 72);
+					int h = (int)((pt1.Y > pt2.Y ? pt1.Y - pt2.Y : pt2.Y - pt1.Y) * Helpers.Dpi / 72);
+
+					bitmap.FillRectEx(x, y, w, h, Helpers.ToArgb(TextSelectColor));
+				}
+			}
+		}
+
 		/// <summary>
 		/// Draw loading icon
 		/// </summary>
@@ -2249,12 +2404,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <item><see cref="DrawPageBackColor"/></item>
 		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
 		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection"/></item>
-		/// <item><see cref="DrawTextHighlight"/></item>
-		/// <item><see cref="DrawTextSelection"/></item>
+		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
 		/// </list>
 		/// </remarks>
@@ -2290,12 +2448,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <item><see cref="DrawPageBackColor"/></item>
 		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
 		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection"/></item>
-		/// <item><see cref="DrawTextHighlight"/></item>
-		/// <item><see cref="DrawTextSelection"/></item>
+		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
 		/// </list>
 		/// </remarks>
@@ -2306,32 +2467,35 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		}
 
 		/// <summary>
-		/// Draws highlights inside a forms
+		/// Left for backward compatibility. Actually the fillforms selection is drawn in <see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/> method.
 		/// </summary>
 		/// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
+		/// <param name="selectedRectangles">A collection of rectangles to be drawn</param>
 		/// <remarks>
 		/// Full page rendering is performed in the following order:
 		/// <list type="bullet">
 		/// <item><see cref="DrawPageBackColor"/></item>
 		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
 		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection"/></item>
-		/// <item><see cref="DrawTextHighlight"/></item>
-		/// <item><see cref="DrawTextSelection"/></item>
+		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
 		/// </list>
 		/// </remarks>
-		protected virtual void DrawFillFormsSelection(DrawingContext drawingContext)
+		protected virtual void DrawFillFormsSelection(DrawingContext drawingContext, List<Rect> selectedRectangles)
 		{
-			foreach (var selectRc in _selectedRectangles)
-				Helpers.FillRectangle(drawingContext, _selectColorBrush, selectRc);
+
 		}
 
 		/// <summary>
-		/// Draws text highlights
+		/// Left for backward compatibility. Actually the text highlight is drawn in <see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/> method.
 		/// </summary>
 		/// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
 		/// <param name="entries">Highlights info.</param>
@@ -2342,35 +2506,25 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <item><see cref="DrawPageBackColor"/></item>
 		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
 		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection"/></item>
-		/// <item><see cref="DrawTextHighlight"/></item>
-		/// <item><see cref="DrawTextSelection"/></item>
+		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
 		/// </list>
 		/// </remarks>
 		protected virtual void DrawTextHighlight(DrawingContext drawingContext, List<HighlightInfo> entries, int pageIndex)
 		{
-			foreach (var e in entries)
-			{
-				var textInfo = Document.Pages[pageIndex].Text.GetTextInfo(e.CharIndex, e.CharsCount);
-				foreach (var rc in textInfo.Rects)
-				{
-					var pt1 = PageToDevice(rc.left, rc.top, pageIndex);
-					var pt2 = PageToDevice(rc.right, rc.bottom, pageIndex);
-					double x = pt1.X < pt2.X ? pt1.X : pt2.X;
-					double y = pt1.Y < pt2.Y ? pt1.Y : pt2.Y;
-					double w = pt1.X > pt2.X ? pt1.X - pt2.X : pt2.X - pt1.X;
-					double h = pt1.Y > pt2.Y ? pt1.Y - pt2.Y : pt2.Y - pt1.Y;
-					Helpers.FillRectangle(drawingContext, e.Brush, Helpers.CreateRect(x, y, w, h));
-				}
-			}
+
 		}
 
 		/// <summary>
-		/// Draws text selection
+		/// Left for backward compatibility. Actually the text selection is drawn in <see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/> method.
 		/// </summary>
 		/// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
 		/// <param name="selInfo">Selection info</param>
@@ -2381,44 +2535,21 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <item><see cref="DrawPageBackColor"/></item>
 		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
 		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection"/></item>
-		/// <item><see cref="DrawTextHighlight"/></item>
-		/// <item><see cref="DrawTextSelection"/></item>
+		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
 		/// </list>
 		/// </remarks>
 		protected virtual void DrawTextSelection(DrawingContext drawingContext, SelectInfo selInfo, int pageIndex)
 		{
-			if (selInfo.StartPage < 0 || !_isShowSelection)
-				return;
 
-			if (pageIndex >= selInfo.StartPage && pageIndex <= selInfo.EndPage)
-			{
-				int s = 0;
-				if (pageIndex == selInfo.StartPage)
-					s = selInfo.StartIndex;
-
-				int len = Document.Pages[pageIndex].Text.CountChars;
-				if (pageIndex == selInfo.EndPage)
-					len = (selInfo.EndIndex + 1) - s;
-
-				var ti = Document.Pages[pageIndex].Text.GetTextInfo(s, len);
-				foreach (var rc in ti.Rects)
-				{
-					var pt1 = PageToDevice(rc.left, rc.top, pageIndex);
-					var pt2 = PageToDevice(rc.right, rc.bottom, pageIndex);
-
-					double x = pt1.X < pt2.X ? pt1.X : pt2.X;
-					double y = pt1.Y < pt2.Y ? pt1.Y : pt2.Y;
-					double w = pt1.X > pt2.X ? pt1.X - pt2.X : pt2.X - pt1.X;
-					double h = pt1.Y > pt2.Y ? pt1.Y - pt2.Y : pt2.Y - pt1.Y;
-
-					Helpers.FillRectangle(drawingContext, _selectColorBrush, Helpers.CreateRect(x, y, w, h));
-				}
-			}
 		}
 
 		/// <summary>
@@ -2433,12 +2564,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <item><see cref="DrawPageBackColor"/></item>
 		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
 		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection"/></item>
-		/// <item><see cref="DrawTextHighlight"/></item>
-		/// <item><see cref="DrawTextSelection"/></item>
+		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
 		/// </list>
 		/// </remarks>
@@ -2466,12 +2600,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <item><see cref="DrawPageBackColor"/></item>
 		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
 		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection"/></item>
-		/// <item><see cref="DrawTextHighlight"/></item>
-		/// <item><see cref="DrawTextSelection"/></item>
+		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
 		/// </list>
 		/// </remarks>
@@ -2513,12 +2650,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <item><see cref="DrawPageBackColor"/></item>
 		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
 		/// <item><see cref="DrawFillForms"/></item>
+		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
 		/// <item><see cref="DrawPageSeparators"/></item>
 		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection"/></item>
-		/// <item><see cref="DrawTextHighlight"/></item>
-		/// <item><see cref="DrawTextSelection"/></item>
+		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
+		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
+		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
 		/// <item><see cref="DrawCurrentPageHighlight"/></item>
 		/// </list>
 		/// </remarks>
