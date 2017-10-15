@@ -1888,10 +1888,19 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 					if (isPageDrawn)  //Draw fill forms
 					{
-						DrawFillForms(formsBitmap ?? (formsBitmap = new PdfBitmap(_prPages.CanvasSize.Width, _prPages.CanvasSize.Height, true)), Document.Pages[i], actualRect);
+						//Create new bitmap if need
+						if (formsBitmap == null)
+							formsBitmap = new PdfBitmap(_prPages.CanvasSize.Width, _prPages.CanvasSize.Height, true);
+						//Copy image of rendered page from canvas bitmap to newly created bitmap
+						Pdfium.FPDFBitmap_CompositeBitmap(formsBitmap.Handle, 0, 0, _prPages.CanvasSize.Width, _prPages.CanvasSize.Height, _prPages.CanvasBitmap.Handle, 0, 0, BlendTypes.FXDIB_BLEND_NORMAL);
+						//Draw fillForms to newly create bitmap
+						DrawFillForms(formsBitmap, Document.Pages[i], actualRect);
+						//Draw fillform selection
 						DrawFillFormsSelection(formsBitmap, _selectedRectangles);
+						//Draw text highlight
 						if (_highlightedText.ContainsKey(i))
 							DrawTextHighlight(formsBitmap, _highlightedText[i], i);
+						//Draw text selection
 						DrawTextSelection(formsBitmap, selTmp, i);
 					}
 					else if (ShowLoadingIcon) //or loading icons
@@ -2288,7 +2297,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				int w = (int)(selectRc.Width * Helpers.Dpi / 72);
 				int h = (int)(selectRc.Height * Helpers.Dpi / 72);
 
-				bitmap.FillRectEx(x, y, w, h, Helpers.ToArgb(TextSelectColor));
+				bitmap.FillRectEx(x, y, w, h, Helpers.ToArgb(TextSelectColor), FormsBlendMode);
 			}
 		}
 
@@ -2333,7 +2342,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					int w = (int)((pt1.X > pt2.X ? pt1.X - pt2.X : pt2.X - pt1.X) * Helpers.Dpi / 72);
 					int h = (int)((pt1.Y > pt2.Y ? pt1.Y - pt2.Y : pt2.Y - pt1.Y) * Helpers.Dpi / 72);
 
-					bitmap.FillRectEx(x, y, w, h, Helpers.ToArgb(e.Color));
+					bitmap.FillRectEx(x, y, w, h, Helpers.ToArgb(e.Color), FormsBlendMode);
 				}
 			}
 		}
@@ -2387,7 +2396,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					int w = (int)((pt1.X > pt2.X ? pt1.X - pt2.X : pt2.X - pt1.X) * Helpers.Dpi / 72);
 					int h = (int)((pt1.Y > pt2.Y ? pt1.Y - pt2.Y : pt2.Y - pt1.Y) * Helpers.Dpi / 72);
 
-					bitmap.FillRectEx(x, y, w, h, Helpers.ToArgb(TextSelectColor));
+					bitmap.FillRectEx(x, y, w, h, Helpers.ToArgb(TextSelectColor), FormsBlendMode);
 				}
 			}
 		}
@@ -2623,19 +2632,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			if (formsBitmap == null)
 				_canvasWpfBitmap.WritePixels(new Int32Rect(0, 0, canvasWidth, canvasHeight), canvasBitmap.Buffer, canvasStride * canvasHeight, canvasStride, 0, 0);
 			else
-			{
-				using (var combinedBitmap = canvasBitmap.Clone())
-				{
-					Pdfium.FPDFBitmap_CompositeBitmap(
-						combinedBitmap.Handle,
-						0, 0,
-						canvasWidth, canvasHeight,
-						formsBitmap.Handle,
-						0, 0,
-						FormsBlendMode);
-					_canvasWpfBitmap.WritePixels(new Int32Rect(0, 0, canvasWidth, canvasHeight), combinedBitmap.Buffer, canvasStride * canvasHeight, canvasStride, 0, 0);
-				}
-			}
+				_canvasWpfBitmap.WritePixels(new Int32Rect(0, 0, canvasWidth, canvasHeight), formsBitmap.Buffer, canvasStride * canvasHeight, canvasStride, 0, 0);
+
 			Helpers.DrawImageUnscaled(drawingContext, _canvasWpfBitmap, 0, 0);
 		}
 
