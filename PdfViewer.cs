@@ -1892,7 +1892,11 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 						if (formsBitmap == null)
 							formsBitmap = new PdfBitmap(_prPages.CanvasSize.Width, _prPages.CanvasSize.Height, true);
 						//Copy image of rendered page from canvas bitmap to newly created bitmap
-						Pdfium.FPDFBitmap_CompositeBitmap(formsBitmap.Handle, 0, 0, _prPages.CanvasSize.Width, _prPages.CanvasSize.Height, _prPages.CanvasBitmap.Handle, 0, 0, BlendTypes.FXDIB_BLEND_NORMAL);
+						int ax = Helpers.PointsToPixels(actualRect.X);
+						int ay = Helpers.PointsToPixels(actualRect.Y);
+						int aw = Helpers.PointsToPixels(actualRect.Width);
+						int ah = Helpers.PointsToPixels(actualRect.Height);
+						Pdfium.FPDFBitmap_CompositeBitmap(formsBitmap.Handle, ax, ay, aw, ah, _prPages.CanvasBitmap.Handle, ax, ay, BlendTypes.FXDIB_BLEND_NORMAL);
 						//Draw fillForms to newly create bitmap
 						DrawFillForms(formsBitmap, Document.Pages[i], actualRect);
 						//Draw fillform selection
