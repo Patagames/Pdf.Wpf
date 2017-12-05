@@ -81,6 +81,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			return new Size(nw, nh);
 		}
 
+		internal static RenderRect CreateRenderRect(double x, double y, double w, double h, bool isChecked)
+		{
+			if (w < 0)
+				w = 0;
+			if (h < 0)
+				h = 0;
+			return new RenderRect(x, y, w, h, isChecked);
+		}
+
 		internal static Rect CreateRect(double x, double y, double w, double h)
 		{
 			if (w < 0)

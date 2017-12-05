@@ -80,6 +80,7 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
+    <Compile Include="RenderRect.cs" />
     <Compile Include="SelectInfo.cs" />
     <Compile Include="SizeModes.cs" />
     <Compile Include="ToolBars\PdfToolBar.cs" />
