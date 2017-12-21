@@ -205,7 +205,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				double width, height;
 				double x, y;
 				CalcSize(currentPage, dpiX, dpiY, e.PageSettings.PrintableArea, e.PageSettings.Landscape, out width, out height, out x, out y);
-				PageRotate rotation = CalcRotation(currentPage, e.PageSettings.Landscape, ref width, ref height);
+				PageRotate rotation = CalcRotation(currentPage, e.PageSettings.Landscape, ref width, ref height, ref x, ref y);
 
 				using (var page = PdfPage.FromHandle(_pdfDoc, currentPage, _pageForPrint))
 				{
@@ -213,11 +213,12 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				}
 
 				hdc = e.Graphics.GetHdc();
+				Pdfium.SetWorldTransform(hdc, new FS_MATRIX(1, 0, 0, 1, x, y));
 				Pdfium.FPDF_RenderPage(
 					hdc,
 					currentPage,
-					(int)x,
-					(int)y,
+					(int)0,
+					(int)0,
 					(int)(width),
 					(int)(height),
 					rotation,
@@ -318,7 +319,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 		}
 
-		private PageRotate CalcRotation(IntPtr currentPage, bool isLandscape, ref double width, ref double height)
+		private PageRotate CalcRotation(IntPtr currentPage, bool isLandscape, ref double width, ref double height, ref double x, ref double y)
 		{
 			var rot = Pdfium.FPDFPage_GetRotation(currentPage);
 			bool isRotated = (rot == PageRotate.Rotate270 || rot == PageRotate.Rotate90) || (width > height);
@@ -328,6 +329,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				double tmp = width;
 				width = height;
 				height = tmp;
+				tmp = x;
+				x = y;
+				y = tmp;
 				return rot == PageRotate.Rotate270 ? PageRotate.Rotate90 : PageRotate.Rotate270;
 			}
 			return PageRotate.Normal;
