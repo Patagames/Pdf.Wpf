@@ -7,12 +7,36 @@ using System.Windows;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
+#if DOTNET20
+[assembly: AssemblyTitle("Pdfium.Net SDK - WPF controls (.net 2.0)")]
+#elif DOTNET30
+[assembly: AssemblyTitle("Pdfium.Net SDK - WPF controls (.net 3.0)")]
+#elif DOTNET35
+[assembly: AssemblyTitle("Pdfium.Net SDK - WPF controls (.net 3.5)")]
+#elif DOTNET40
+[assembly: AssemblyTitle("Pdfium.Net SDK - WPF controls (.net 4.0)")]
+#elif DOTNET45
+[assembly: AssemblyTitle("Pdfium.Net SDK - WPF controls (.net 4.5)")]
+#elif DOTNET451
+[assembly: AssemblyTitle("Pdfium.Net SDK - WPF controls (.net 4.5.1)")]
+#elif DOTNET452
+[assembly: AssemblyTitle("Pdfium.Net SDK - WPF controls (.net 4.5.2)")]
+#elif DOTNET46
+[assembly: AssemblyTitle("Pdfium.Net SDK - WPF controls (.net 4.6)")]
+#elif DOTNET461
+[assembly: AssemblyTitle("Pdfium.Net SDK - WPF controls (.net 4.6.1)")]
+#elif DOTNET462
+[assembly: AssemblyTitle("Pdfium.Net SDK - WPF controls (.net 4.6.2)")]
+#elif DOTNET47
+[assembly: AssemblyTitle("Pdfium.Net SDK - WPF controls (.net 4.7)")]
+#else
 [assembly: AssemblyTitle("Pdfium.Net SDK - WPF controls")]
+#endif
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Patagames Software")]
 [assembly: AssemblyProduct("Pdfium.Net SDK - WPF controls")]
-[assembly: AssemblyCopyright("Copyright ©  2016")]
+[assembly: AssemblyCopyright("Copyright ©  2018")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -51,4 +75,4 @@ using System.Windows;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("3.12.4.0")]
+[assembly: AssemblyVersion("3.12.5.0")]

@@ -2924,8 +2924,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 			if (xright < Padding.Left)
 				xright = Padding.Left;
+            if (ybottom < Padding.Top)
+                ybottom = Padding.Top;
 
-			double x = xcenter;
+            double x = xcenter;
 			double y = ycenter;
 
 			switch (PageVAlign)
@@ -3097,7 +3099,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				if (width < rrect.Width)
 					width = rrect.Width;
 			}
-			return Helpers.CreateSize(width + Padding.Right, y + Padding.Bottom);
+			return Helpers.CreateSize(width + Helpers.ThicknessHorizontal(Padding), y + Padding.Bottom);
 		}
 
 		private Size CalcTilesVertical(int displayedPage)
@@ -3111,7 +3113,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				double x = 0;
 				double y = maxY;
 				int j;
-				for (j = i; j < i + TilesCount; j++)
+                double tmp_max_widt = 0;
+                for (j = i; j < i + TilesCount; j++)
 				{
 					if (j >= _renderRects.Length)
 						break;
@@ -3135,16 +3138,17 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 					if (maxY < _renderRects[j].Y + _renderRects[j].Height + (j > _renderRects.Length - 1 - TilesCount ? 0 : PageMargin.Bottom))
 						maxY = _renderRects[j].Y + _renderRects[j].Height + (j > _renderRects.Length - 1 - TilesCount ? 0 : PageMargin.Bottom);
-					if (maxX < _renderRects[j].X + _renderRects[j].Width + (j == i + TilesCount - 1 ? 0 : PageMargin.Right))
-						maxX = _renderRects[j].X + _renderRects[j].Width + (j == i + TilesCount - 1 ? 0 : PageMargin.Right);
-				}
-				//repositioning the line of tiles
-				var loc = GetRenderLocation(new Size(_renderRects[j - 1].Right - _renderRects[i].Left, 0));
+                    tmp_max_widt += _renderRects[j].Width;
+                }
+                if (maxX < tmp_max_widt + (Padding.Right + Padding.Left) * (TilesCount - 1))
+                    maxX = tmp_max_widt + (Padding.Right + Padding.Left) * (TilesCount - 1);
+                //repositioning the line of tiles
+                var loc = GetRenderLocation(new Size(_renderRects[j - 1].Right - _renderRects[i].Left, 0));
 				var offset = loc.X - _renderRects[i].Left;
 				for (int k = i; k < j; k++)
 					_renderRects[k].X += offset;
 			}
-			return Helpers.CreateSize(maxX + Padding.Right, maxY + Padding.Bottom);
+			return Helpers.CreateSize(maxX + Helpers.ThicknessHorizontal(Padding), maxY + Padding.Bottom);
 		}
 
 		private Size CalcTilesVerticalNoChangeSize(int displayedPage)
@@ -3199,7 +3203,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				if (height < rrect.Height)
 					height = rrect.Height;
 			}
-			return Helpers.CreateSize(x + Padding.Right, height + Padding.Bottom);
+			return Helpers.CreateSize(x + Padding.Right, height + Helpers.ThicknessVertical(Padding));
 		}
 
 		private Size CalcSingle(int displayedPage)
