@@ -241,6 +241,24 @@ namespace Patagames.Pdf.Net.Controls.Wpf.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Facing.
+        /// </summary>
+        internal static string btnModeTwoPageText {
+            get {
+                return ResourceManager.GetString("btnModeTwoPageText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to View two pages side-by-side.
+        /// </summary>
+        internal static string btnModeTwoPageToolTipText {
+            get {
+                return ResourceManager.GetString("btnModeTwoPageToolTipText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Continuous Vertical.
         /// </summary>
         internal static string btnModeVerticalText {

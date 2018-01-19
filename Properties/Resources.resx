@@ -282,4 +282,10 @@
   <data name="err0003" xml:space="preserve">
     <value>The value must be between {0} and {1}.</value>
   </data>
+  <data name="btnModeTwoPageText" xml:space="preserve">
+    <value>Facing</value>
+  </data>
+  <data name="btnModeTwoPageToolTipText" xml:space="preserve">
+    <value>View two pages side-by-side</value>
+  </data>  
 </root>

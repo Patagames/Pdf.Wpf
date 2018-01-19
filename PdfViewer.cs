@@ -13,12 +13,14 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.ComponentModel;
 
 namespace Patagames.Pdf.Net.Controls.Wpf
 {
     /// <summary>
     /// Represents a pdf view control for displaying an Pdf document.
     /// </summary>	
+    [LicenseProvider]
     public partial class PdfViewer : Control, IScrollInfo
     {
         #region Private fields
@@ -38,8 +40,40 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		private Pen _currentPageHighlightColorPen = Helpers.CreatePen((Color)CurrentPageHighlightColorProperty.DefaultMetadata.DefaultValue, 4);
 
         private RenderRect[] _renderRects;
-        private int _startPage { get { return Document == null ? 0 : (ViewMode == ViewModes.SinglePage ? Document.Pages.CurrentIndex : 0); } }
-        private int _endPage { get { return Document == null ? -1 : (ViewMode == ViewModes.SinglePage ? Document.Pages.CurrentIndex : (_renderRects != null ? _renderRects.Length - 1 : -1)); } }
+        private int _startPage
+        {
+            get
+            {
+                if (Document == null)
+                    return 0;
+                switch (ViewMode)
+                {
+                    case ViewModes.SinglePage:
+                        return Document.Pages.CurrentIndex;
+                    case ViewModes.TilesLine:
+                        return Document.Pages.CurrentIndex % TilesCount == 0 ? Document.Pages.CurrentIndex : Document.Pages.CurrentIndex - Document.Pages.CurrentIndex % TilesCount;
+                    default:
+                        return 0;
+                }
+            }
+        }
+        private int _endPage
+        {
+            get
+            {
+                if (Document == null)
+                    return -1;
+                switch (ViewMode)
+                {
+                    case ViewModes.SinglePage:
+                        return Document.Pages.CurrentIndex;
+                    case ViewModes.TilesLine:
+                        return Math.Min(_startPage + TilesCount - 1, _renderRects != null ? _renderRects.Length - 1 : -1);
+                    default:
+                        return _renderRects != null ? _renderRects.Length - 1 : -1;
+                }
+            }
+        }
 
         private Size _extent = new Size(0, 0);
         private Size _viewport = new Size(0, 0);
@@ -1251,7 +1285,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			if (index < 0 || index > Document.Pages.Count - 1)
 				return;
 
-			if (ViewMode == ViewModes.SinglePage)
+			if (ViewMode == ViewModes.SinglePage || ViewMode == ViewModes.TilesLine)
 			{
 				if (index != CurrentIndex)
 				{
@@ -1611,7 +1645,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 			SaveScrollPoint();
 			_renderRects = new RenderRect[Document.Pages.Count];
-			CalcPages(0);
+			CalcPages();
 			RestoreScrollPoint();
 			InvalidateVisual();
 		}
@@ -1777,7 +1811,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </summary>
 		public PdfViewer()
 		{
-			LoadingIconText = Properties.Resources.LoadingText;
+            PdfCommon.DesignTimeActivation();
+            LoadingIconText = Properties.Resources.LoadingText;
 			Background = SystemColors.ControlDarkBrush;
 			_fillForms = new PdfForms();
 			CaptureFillForms(_fillForms);
@@ -1882,7 +1917,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					if (!_renderRects[i].IsChecked)
 					{
 						SaveScrollPoint();
-						CalcPages(i);
+						CalcPages();
 						RestoreScrollPoint();
 						actualRect = CalcActualRect(i);
 					}
@@ -2852,7 +2887,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					separator.Add(new Point(actualRect.X, actualRect.Bottom + PageMargin.Bottom));
 					separator.Add(new Point(actualRect.Right, actualRect.Bottom + PageMargin.Bottom));
 					break;
-				case ViewModes.Horizontal:
+                case ViewModes.TilesLine:
+                case ViewModes.Horizontal:
 					separator.Add(new Point(actualRect.Right + PageMargin.Right, actualRect.Top));
 					separator.Add(new Point(actualRect.Right + PageMargin.Right, actualRect.Bottom));
 					break;
@@ -2873,21 +2909,20 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 		}
 
-		private bool GetRenderRectEx(int displayedPage, ref Rect rrect, int processedPage)
+		private bool GetRenderRectEx(ref Rect rrect, int processedPage)
 		{
-			if (_renderRects.Length < OptimizedLoadThreshold)
-			{
-				rrect = GetRenderRect(processedPage);
-				return true;
-			}
-			else if (_renderRects[processedPage].IsChecked)
-				rrect = new Rect(_renderRects[processedPage].X, _renderRects[processedPage].Y, _renderRects[processedPage].Width, _renderRects[processedPage].Height);
-			else if (processedPage == 0 || processedPage == displayedPage)
-			{
-				rrect = GetRenderRect(processedPage);
-				return true;
-			}
-			return _renderRects[processedPage].IsChecked;
+            if (_renderRects.Length < OptimizedLoadThreshold || processedPage == 0)
+            {
+                rrect = GetRenderRect(processedPage);
+                return true;
+            }
+            else if (_renderRects[processedPage].IsChecked)
+            {
+                rrect = new Rect(_renderRects[processedPage].X, _renderRects[processedPage].Y, _renderRects[processedPage].Width, _renderRects[processedPage].Height);
+                return true;
+            }
+            else
+                return false;
 		}
 
 		private Rect GetRenderRect(int index)
@@ -2967,7 +3002,16 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			double nw = clientSize.Width;
 			double nh = h * nw / w;
 
-			return CalcAppropriateSize(w, h, clientSize.Width- Helpers.ThicknessHorizontal(Padding), clientSize.Height - Helpers.ThicknessVertical(Padding));
+            switch (ViewMode)
+            {
+                case ViewModes.TilesLine:
+                case ViewModes.TilesVertical:
+                    return CalcAppropriateSize(w, h, clientSize.Width / TilesCount - Helpers.ThicknessHorizontal(Padding), clientSize.Height - Helpers.ThicknessVertical(Padding));
+                case ViewModes.TilesHorizontal:
+                    return CalcAppropriateSize(w, h, clientSize.Width - Helpers.ThicknessHorizontal(Padding), clientSize.Height / TilesCount - Helpers.ThicknessVertical(Padding));
+                default:
+                    return CalcAppropriateSize(w, h, clientSize.Width - Helpers.ThicknessHorizontal(Padding), clientSize.Height - Helpers.ThicknessVertical(Padding));
+            }
 		}
 
 		private Size CalcAppropriateSize(double w, double h, double fitWidth, double fitHeight)
@@ -3003,8 +3047,35 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			return new Size(nw, nh);
 		}
 
+        private void AlignVertical(int from = 0, int to = -1)
+        {
+            if (to == -1)
+                to = _renderRects.Length;
 
-		private int DeviceToPage(double x, double y, out Point pagePoint)
+            if (_renderRects[to - 1].Bottom + Padding.Bottom < ClientRect.Size.Height)
+            {
+                var loc = GetRenderLocation(new Size(0, _renderRects[to - 1].Bottom - Padding.Bottom));
+                var offset = loc.Y - _renderRects[from].Y;
+                for (int i = from; i < to; i++)
+                    _renderRects[i].Y += offset;
+            }
+        }
+
+        private void AlignHorizontal(int from = 0, int to = -1)
+        {
+            if (to == -1)
+                to = _renderRects.Length;
+
+            if (_renderRects[to - 1].Right + Padding.Right < ClientRect.Size.Width)
+            {
+                var loc = GetRenderLocation(new Size(_renderRects[to - 1].Right - Padding.Right, 0));
+                var offset = loc.X - _renderRects[from].X;
+                for (int i = from; i < to; i++)
+                    _renderRects[i].X += offset;
+            }
+        }
+
+        private int DeviceToPage(double x, double y, out Point pagePoint)
 		{
 			for (int i = _startPage; i <= _endPage; i++)
 			{
@@ -3081,138 +3152,143 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			return selTmp;
 		}
 
-		private Size CalcVertical(int displayedPage)
+		private Size CalcVertical()
 		{
-			double y = Padding.Top;
 			double width = 0;
 			Rect rrect = Rect.Empty;
 			for (int i = 0; i < _renderRects.Length; i++)
 			{
-				bool isChecked = GetRenderRectEx(displayedPage, ref rrect, i);
-				_renderRects[i] = Helpers.CreateRenderRect(
+				bool isChecked = GetRenderRectEx(ref rrect, i);
+				again: _renderRects[i] = Helpers.CreateRenderRect(
 					rrect.X,
-					y + (i > 0 ? PageMargin.Top : 0),
-					rrect.Width,
+                    i > 0 ? _renderRects[i - 1].Bottom + Helpers.ThicknessVertical(PageMargin) : Padding.Top,
+                    rrect.Width,
 					rrect.Height,
 					isChecked);
-				y += rrect.Height + (_renderRects.Length == 1 ? 0 : (i == 0 || i == _renderRects.Length - 1 ? PageMargin.Bottom : Helpers.ThicknessVertical(PageMargin)));
-				if (width < rrect.Width)
-					width = rrect.Width;
-			}
-			return Helpers.CreateSize(width + Helpers.ThicknessHorizontal(Padding), y + Padding.Bottom);
-		}
-
-		private Size CalcTilesVertical(int displayedPage)
-		{
-			double maxX = 0;
-			double maxY = Padding.Top;
-			displayedPage = (int)(displayedPage / TilesCount) * TilesCount;
-			Rect prevrect = Rect.Empty;
-			for (int i = 0; i < _renderRects.Length; i += TilesCount)
-			{
-				double x = 0;
-				double y = maxY;
-				int j;
-                double tmp_max_widt = 0;
-                for (j = i; j < i + TilesCount; j++)
-				{
-					if (j >= _renderRects.Length)
-						break;
-					bool ac = _renderRects[j].IsChecked;
-					bool isChecked = GetRenderRectEx(displayedPage + j - i, ref prevrect, j);
-					var rrect = prevrect;
-					if (!ac)
-					{
-						var sz = CalcAppropriateSize(rrect.Width, rrect.Height, rrect.Width - Helpers.ThicknessHorizontal(PageMargin) * (TilesCount - 1), rrect.Height - Helpers.ThicknessVertical(PageMargin) * (TilesCount - 1));
-						rrect.Width = sz.Width / TilesCount;
-						rrect.Height = sz.Height / TilesCount;
-					}
-
-					_renderRects[j] = Helpers.CreateRenderRect(
-						x + (j != i ? PageMargin.Left : 0) + (j == i ? rrect.X : 0),
-						y + (i >= TilesCount ? PageMargin.Top : 0),
-						rrect.Width,
-						rrect.Height,
-						isChecked);
-					x += rrect.Width + (j == i ? rrect.X : 0) + (j == i ? PageMargin.Right : Helpers.ThicknessHorizontal(PageMargin));
-
-					if (maxY < _renderRects[j].Y + _renderRects[j].Height + (j > _renderRects.Length - 1 - TilesCount ? 0 : PageMargin.Bottom))
-						maxY = _renderRects[j].Y + _renderRects[j].Height + (j > _renderRects.Length - 1 - TilesCount ? 0 : PageMargin.Bottom);
-                    tmp_max_widt += _renderRects[j].Width;
+                if (!isChecked && CalcActualRect(i).IntersectsWith(ClientRect))
+                {
+                    isChecked = true;
+                    rrect = GetRenderRect(i);
+                    goto again;
                 }
-                if (maxX < tmp_max_widt + (Padding.Right + Padding.Left) * (TilesCount - 1))
-                    maxX = tmp_max_widt + (Padding.Right + Padding.Left) * (TilesCount - 1);
-                //repositioning the line of tiles
-                var loc = GetRenderLocation(new Size(_renderRects[j - 1].Right - _renderRects[i].Left, 0));
-				var offset = loc.X - _renderRects[i].Left;
-				for (int k = i; k < j; k++)
-					_renderRects[k].X += offset;
-			}
-			return Helpers.CreateSize(maxX + Helpers.ThicknessHorizontal(Padding), maxY + Padding.Bottom);
+                if (width < _renderRects[i].Right)
+                    width = _renderRects[i].Right;
+            }
+            AlignVertical();
+			return Helpers.CreateSize(width + Padding.Right, _renderRects[_renderRects.Length - 1].Bottom + Padding.Bottom);
 		}
 
-		private Size CalcTilesVerticalNoChangeSize(int displayedPage)
-		{
-			double maxX = 0;
-			double maxY = Padding.Top;
-			displayedPage = (int)(displayedPage / TilesCount) * TilesCount;
-			Rect prevrect = Rect.Empty;
-			for (int i = 0; i < _renderRects.Length; i += TilesCount)
-			{
-				double x = 0;
-				double y = maxY;
-				for (int j = i; j < i + TilesCount; j++)
-				{
-					if (j >= _renderRects.Length)
-						break;
-					bool isChecked = GetRenderRectEx(displayedPage + j - i, ref prevrect, j);
-					var rrect = prevrect;
+        private Size CalcTilesVertical()
+        {
+            Rect rrect = Rect.Empty;
+            double height = 0;
+            double width = 0;
+            for (int i = 0; i < _renderRects.Length; i += TilesCount)
+            {
+                int j;
+                int lowestPage = i; //Index of the page with lowest bottom edge in the row
+                for (j = i; j < i + TilesCount && j < _renderRects.Length; j++)
+                {
+                    bool isChecked = GetRenderRectEx(ref rrect, j);
+                    again: _renderRects[j] = new RenderRect(
+                        (j - i) % TilesCount != 0 ? _renderRects[j - 1].Right + Helpers.ThicknessHorizontal(PageMargin) : Padding.Left,
+                        i > 0 ? height + Helpers.ThicknessVertical(PageMargin) : Padding.Top,
+                        rrect.Width,
+                        rrect.Height,
+                        isChecked);
+                    if (!isChecked && CalcActualRect(j).IntersectsWith(ClientRect))
+                    {
+                        isChecked = true;
+                        rrect = GetRenderRect(j);
+                        goto again;
+                    }
+                    if (_renderRects[lowestPage].Bottom < _renderRects[j].Bottom)
+                        lowestPage = j;
+                }
+                AlignHorizontal(i, j);
 
-					_renderRects[j] = Helpers.CreateRenderRect(
-						x + (j != i ? PageMargin.Left : 0) + (j == i ? rrect.X : 0),
-						y + (i >= TilesCount ? PageMargin.Top : 0),
-						rrect.Width,
-						rrect.Height,
-						isChecked);
-					x += rrect.Width + (j == i ? rrect.X : 0) + (j == i ? PageMargin.Right : Helpers.ThicknessHorizontal(PageMargin));
+                height = _renderRects[lowestPage].Bottom;
+                if (width < _renderRects[j - 1].Right)
+                    width = _renderRects[j - 1].Right;
+            }
+            AlignVertical();
+            return new Size(width + Padding.Right, height + Padding.Bottom);
+        }
 
-					if (maxY < _renderRects[j].Y + _renderRects[j].Height + (j > _renderRects.Length - 1 - TilesCount ? 0 : PageMargin.Bottom))
-						maxY = _renderRects[j].Y + _renderRects[j].Height + (j > _renderRects.Length - 1 - TilesCount ? 0 : PageMargin.Bottom);
-					if (maxX < _renderRects[j].X + _renderRects[j].Width + (j == i + TilesCount - 1 ? 0 : PageMargin.Right))
-						maxX = _renderRects[j].X + _renderRects[j].Width + (j == i + TilesCount - 1 ? 0 : PageMargin.Right);
-				}
-			}
-			return Helpers.CreateSize(maxX + Padding.Right, maxY + Padding.Bottom);
-		}
+        private Size CalcTilesHorizontal()
+        {
+            Rect rrect = Rect.Empty;
+            double height = 0;
+            double width = 0;
+            for (int i = 0; i < _renderRects.Length; i += TilesCount)
+            {
+                int j;
+                int rightestPage = i; //Index of the page with maximum right edge in the column
+                for (j = i; j < i + TilesCount && j < _renderRects.Length; j++)
+                {
+                    bool isChecked = GetRenderRectEx(ref rrect, j);
+                    again: _renderRects[j] = new RenderRect(
+                        i > 0 ? width + Helpers.ThicknessHorizontal(PageMargin) : Padding.Left,
+                        (j - i) % TilesCount != 0 ? _renderRects[j - 1].Bottom + Helpers.ThicknessVertical(PageMargin) : Padding.Top,
+                        rrect.Width,
+                        rrect.Height,
+                        isChecked);
+                    if (!isChecked && CalcActualRect(j).IntersectsWith(ClientRect))
+                    {
+                        isChecked = true;
+                        rrect = GetRenderRect(j);
+                        goto again;
+                    }
+                    if (_renderRects[rightestPage].Right < _renderRects[j].Right)
+                        rightestPage = j;
+                }
+                AlignVertical(i, j);
 
-		private Size CalcHorizontal(int displayedPage)
+                width = _renderRects[rightestPage].Right;
+                if (height < _renderRects[j - 1].Bottom)
+                    height = _renderRects[j - 1].Bottom;
+            }
+            AlignHorizontal();
+            return new Size(width + Padding.Right, height + Padding.Bottom);
+        }
+
+        private Size CalcHorizontal()
 		{
 			double height = 0;
-			double x = Padding.Left;
 			Rect rrect = Rect.Empty;
 			for (int i = 0; i < _renderRects.Length; i++)
 			{
-				bool isChecked = GetRenderRectEx(displayedPage, ref rrect, i);
-				_renderRects[i] = Helpers.CreateRenderRect(
-					x + (i > 0 ? PageMargin.Left : 0),
-					rrect.Y,
+				bool isChecked = GetRenderRectEx(ref rrect, i);
+				again: _renderRects[i] = Helpers.CreateRenderRect(
+                    i > 0 ? _renderRects[i - 1].Right + Helpers.ThicknessHorizontal(PageMargin) : Padding.Left,
+                    rrect.Y,
 					rrect.Width,
 					rrect.Height,
 					isChecked);
-				x += rrect.Width + (_renderRects.Length == 1 ? 0 : (i == 0 || i == _renderRects.Length - 1 ? PageMargin.Right : Helpers.ThicknessHorizontal(PageMargin)));
-				if (height < rrect.Height)
-					height = rrect.Height;
-			}
-			return Helpers.CreateSize(x + Padding.Right, height + Helpers.ThicknessVertical(Padding));
+                if (!isChecked && CalcActualRect(i).IntersectsWith(ClientRect))
+                {
+                    isChecked = true;
+                    rrect = GetRenderRect(i);
+                    goto again;
+                }
+                if (height < _renderRects[i].Bottom)
+                    height = _renderRects[i].Bottom;
+            }
+            AlignHorizontal();
+			return Helpers.CreateSize(_renderRects[_renderRects.Length - 1].Right + Padding.Right, height + Padding.Bottom);
 		}
 
-		private Size CalcSingle(int displayedPage)
+		private Size CalcSingle()
 		{
 			Size ret = Helpers.CreateSize(0, 0);
 			Rect rrect = Rect.Empty;
 			for (int i = 0; i < _renderRects.Length; i++)
 			{
-				bool isChecked = GetRenderRectEx(displayedPage, ref rrect, i);
+                bool isChecked = true;
+                if (i == CurrentIndex)
+                    rrect = GetRenderRect(i);
+                else
+                    isChecked = GetRenderRectEx(ref rrect, i);
 				_renderRects[i] = Helpers.CreateRenderRect(
 					rrect.X,
 					rrect.Y,
@@ -3225,8 +3301,34 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			return ret;
 		}
 
+        private Size CalcTilesLine()
+        {
+            Size ret = new Size(0, 0);
+            Rect rrect = Rect.Empty;
+            for (int i = 0; i < _renderRects.Length; i++)
+            {
+                bool isChecked = true;
+                if (i >= _startPage && i <= _endPage)
+                    rrect = GetRenderRect(i);
+                else
+                    isChecked = GetRenderRectEx(ref rrect, i);
+                _renderRects[i] = new RenderRect(
+                    i % TilesCount == 0 ? Padding.Left : _renderRects[i - 1].Right + Helpers.ThicknessHorizontal(PageMargin),
+                    rrect.Y,
+                    rrect.Width,
+                    rrect.Height,
+                    isChecked);
 
-		private Rect renderRects(int index)
+                if (i % TilesCount == TilesCount - 1 || i == _renderRects.Length - 1)
+                {
+                    AlignHorizontal(i - i % TilesCount, i + 1);
+                    ret = new Size(_renderRects[i].Right + Padding.Right, _renderRects[IdxWithLowestBottom(i - i % TilesCount, i)].Bottom + Padding.Bottom);
+                }
+            }
+            return ret;
+        }
+
+        private Rect renderRects(int index)
 		{
 			if (_renderRects != null)
 				return _renderRects[index].Rect();
@@ -3241,13 +3343,18 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				Document.Pages.CurrentPageChanged -= Pages_CurrentPageChanged;
 				if (Document.Pages.CurrentIndex != index)
 				{
-					var prevIdx = Document.Pages.CurrentIndex;
-					Document.Pages.CurrentIndex = index;
+                    int prevStart = _startPage;
+                    int prevEnd = _endPage;
+                    Document.Pages.CurrentIndex = index;
 					OnCurrentPageChanged(EventArgs.Empty);
-					if (ViewMode == ViewModes.SinglePage && prevIdx > 0 && prevIdx < Document.Pages.Count && PageAutoDispose)
-						Document.Pages[prevIdx].Dispose();
-				}
-			}
+
+                    if (ViewMode == ViewModes.SinglePage || ViewMode == ViewModes.TilesLine)
+                        UpdateScrollBars(new Size(_renderRects[_endPage].Right + Padding.Right, _renderRects[IdxWithLowestBottom(_startPage, _endPage)].Bottom + Padding.Bottom));
+                    if ((ViewMode == ViewModes.SinglePage || ViewMode == ViewModes.TilesLine) && _startPage != prevStart)
+                        for (int i = prevStart; i <= prevEnd; i++)
+                            Document.Pages[i].Dispose();
+                }
+            }
 			finally
 			{
 				Document.Pages.CurrentPageChanged += Pages_CurrentPageChanged;
@@ -3304,36 +3411,47 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			return false;
 		}
 
-		private void CalcPages(int displayedPage)
+		private void CalcPages()
 		{
 			Size size;
 
 			switch (ViewMode)
 			{
 				case ViewModes.Vertical:
-					size = CalcVertical(displayedPage);
+					size = CalcVertical();
 					break;
 				case ViewModes.Horizontal:
-					size = CalcHorizontal(displayedPage);
+					size = CalcHorizontal();
 					break;
 				case ViewModes.TilesVertical:
-					size = CalcTilesVertical(displayedPage);
+					size = CalcTilesVertical();
 					break;
-				default:
-					size = CalcSingle(displayedPage);
+                case ViewModes.TilesHorizontal:
+                    size = CalcTilesHorizontal();
+                    break;
+                case ViewModes.TilesLine:
+                    size = CalcTilesLine();
+                    break;
+                default:
+					size = CalcSingle();
 					break;
 			}
 
-			if (size.Width != 0 && size.Height != 0)
-			{
-				_extent = size;
-				_viewport = new Size(ActualWidth, ActualHeight);
-				if (ScrollOwner != null)
-					ScrollOwner.InvalidateScrollInfo();
-			}
+            UpdateScrollBars(size);
 		}
 
-		private bool GetWord(PdfText text, int ci, out int si, out int ei)
+        private void UpdateScrollBars(Size size)
+        {
+            if (size.Width != 0 && size.Height != 0)
+            {
+                _extent = size;
+                _viewport = new Size(ActualWidth, ActualHeight);
+                if (ScrollOwner != null)
+                    ScrollOwner.InvalidateScrollInfo();
+            }
+        }
+
+        private bool GetWord(PdfText text, int ci, out int si, out int ei)
 		{
 			si = ei = ci;
 			if (text == null)
@@ -3387,14 +3505,25 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			};
 			_invalidateTimer.Start();
 		}
-		#endregion
 
-		#region FillForms event raises
-		/// <summary>
-		/// Called by the engine when it is required to redraw the page
-		/// </summary>
-		/// <param name="e">An <see cref="InvalidatePageEventArgs"/> that contains the event data.</param>
-		protected virtual void OnFormsInvalidate(InvalidatePageEventArgs e)
+        private int IdxWithLowestBottom(int from, int to)
+        {
+            int idx = from;
+            for (int i = from + 1; i <= to; i++)
+            {
+                if (_renderRects[idx].Bottom < _renderRects[i].Bottom)
+                    idx = i;
+            }
+            return idx;
+        }
+        #endregion
+
+        #region FillForms event raises
+        /// <summary>
+        /// Called by the engine when it is required to redraw the page
+        /// </summary>
+        /// <param name="e">An <see cref="InvalidatePageEventArgs"/> that contains the event data.</param>
+        protected virtual void OnFormsInvalidate(InvalidatePageEventArgs e)
 		{
             InvalidateVisual();
 		}
@@ -3538,9 +3667,12 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 		void Pages_CurrentPageChanged(object sender, EventArgs e)
 		{
-			if (ViewMode == ViewModes.SinglePage)
-				_prPages.ReleaseCanvas();
-			OnCurrentPageChanged(EventArgs.Empty);
+            if (ViewMode == ViewModes.SinglePage || ViewMode == ViewModes.TilesLine)
+            {
+                _prPages.ReleaseCanvas();
+                UpdateScrollBars(new Size(_renderRects[_endPage].Right + Padding.Right, _renderRects[IdxWithLowestBottom(_startPage, _endPage)].Bottom + Padding.Bottom));
+            }
+            OnCurrentPageChanged(EventArgs.Empty);
 			InvalidateVisual();
 		}
 

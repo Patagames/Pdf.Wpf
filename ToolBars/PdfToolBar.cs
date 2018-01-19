@@ -44,7 +44,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 		public static readonly DependencyProperty PdfViewerProperty =
 			DependencyProperty.Register("PdfViewer", typeof(PdfViewer), typeof(PdfToolBar), new PropertyMetadata(null, (o, e) => 
 			{
-				if(e.OldValue!= e.NewValue)
+                bool b = System.ComponentModel.DesignerProperties.GetIsInDesignMode(o as PdfToolBar);
+                if (e.OldValue!= e.NewValue && !b)
 					(o as PdfToolBar).OnPdfViewerChanging(e.OldValue as PdfViewer, e.NewValue as PdfViewer);
 			}));
 

@@ -8,11 +8,12 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 	/// </summary>
 	public class PdfToolBarViewModes : PdfToolBar
 	{
-		#region Overriding
-		/// <summary>
-		/// Create all buttons and add its into toolbar. Override this method to create custom buttons
-		/// </summary>
-		protected override void InitializeButtons()
+        int _tilesCount = -1;
+        #region Overriding
+        /// <summary>
+        /// Create all buttons and add its into toolbar. Override this method to create custom buttons
+        /// </summary>
+        protected override void InitializeButtons()
 		{
 			var btn = CreateToggleButton("btnModeSingle",
 				Properties.Resources.btnModeSingleText,
@@ -49,7 +50,16 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 				16,16,
 				ImageTextType.ImageOnly);
 			this.Items.Add(btn);
-		}
+
+            btn = CreateToggleButton("btnModeTwoPage",
+                Properties.Resources.btnModeTwoPageText,
+                Properties.Resources.btnModeTwoPageToolTipText,
+                "modeTwoPage.png",
+                btn_ModeTwoPageClick,
+                16, 16,
+                ImageTextType.ImageOnly);
+            this.Items.Add(btn);
+        }
 
 		/// <summary>
 		/// Called when the ToolBar's items need to change its states
@@ -72,7 +82,11 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			if (tsi != null)
 				tsi.IsEnabled = (PdfViewer != null) && (PdfViewer.Document != null);
 
-			if (PdfViewer == null || PdfViewer.Document == null)
+            tsi = this.Items[4] as ToggleButton;
+            if (tsi != null)
+                tsi.IsEnabled = (PdfViewer != null) && (PdfViewer.Document != null);
+
+            if (PdfViewer == null || PdfViewer.Document == null)
 				return;
 
 			var tsb = this.Items[0] as ToggleButton;
@@ -91,7 +105,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			if (tsb != null)
 				tsb.IsChecked = (PdfViewer.ViewMode == ViewModes.TilesVertical);
 
-		}
+            tsb = this.Items[4] as ToggleButton;
+            if (tsb != null)
+                tsb.IsChecked = (PdfViewer.ViewMode == ViewModes.TilesLine);
+        }
 
 		/// <summary>
 		/// Called when the current PdfViewer control associated with the ToolBar is changing.
@@ -133,14 +150,18 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 		{
 			OnModeTilesClick(this.Items[3] as ToggleButton);
 		}
-		#endregion
+        private void btn_ModeTwoPageClick(object sender, System.EventArgs e)
+        {
+            OnModeTwoPageClick(this.Items[4] as ToggleButton);
+        }
+        #endregion
 
-		#region Protected methods
-		/// <summary>
-		/// Occurs when the Single Page button is clicked
-		/// </summary>
-		/// <param name="item">The item that has been clicked</param>
-		protected virtual void OnModeSingleClick(ToggleButton item)
+        #region Protected methods
+        /// <summary>
+        /// Occurs when the Single Page button is clicked
+        /// </summary>
+        /// <param name="item">The item that has been clicked</param>
+        protected virtual void OnModeSingleClick(ToggleButton item)
 		{
 			PdfViewer.ViewMode = ViewModes.SinglePage;
 		}
@@ -169,13 +190,26 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 		/// <param name="item">The item that has been clicked</param>
 		protected virtual void OnModeTilesClick(ToggleButton item)
 		{
-			PdfViewer.ViewMode = ViewModes.TilesVertical;
+            if (_tilesCount != -1)
+                PdfViewer.TilesCount = _tilesCount;
+            PdfViewer.ViewMode = ViewModes.TilesVertical;
 		}
 
-		#endregion
+        /// <summary>
+        /// Occurs when the Facing button is clicked
+        /// </summary>
+        /// <param name="item">The item that has been clicked</param>
+        protected virtual void OnModeTwoPageClick(ToggleButton item)
+        {
+            _tilesCount = PdfViewer.TilesCount;
+            PdfViewer.TilesCount = 2;
+            PdfViewer.ViewMode = ViewModes.TilesLine;
+        }
 
-		#region Private methods
-		private void UnsubscribePdfViewEvents(PdfViewer oldValue)
+        #endregion
+
+        #region Private methods
+        private void UnsubscribePdfViewEvents(PdfViewer oldValue)
 		{
 			oldValue.AfterDocumentChanged -= PdfViewer_SomethingChanged;
 			oldValue.DocumentLoaded -= PdfViewer_SomethingChanged;
