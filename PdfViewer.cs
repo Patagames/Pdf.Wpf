@@ -1263,7 +1263,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// Gets or sets a value indicating whether the control can accept PDF document through Document property.
 		/// </summary>
 		[Obsolete("This property is ignored now", false)]
-		public bool AllowSetDocument { get; set; }
+        [ReadOnly(true)]
+        [Browsable(false)]
+        public bool AllowSetDocument { get; set; }
 
 		/// <summary>
 		/// Gets information about highlighted text in a PdfView control
