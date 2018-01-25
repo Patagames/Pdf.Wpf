@@ -3004,17 +3004,25 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			double nw = clientSize.Width;
 			double nh = h * nw / w;
 
+            Size ret;
             switch (ViewMode)
             {
                 case ViewModes.TilesLine:
                 case ViewModes.TilesVertical:
-                    return CalcAppropriateSize(w, h, clientSize.Width / TilesCount - Helpers.ThicknessHorizontal(Padding), clientSize.Height - Helpers.ThicknessVertical(Padding));
+                    ret =  CalcAppropriateSize(w, h, clientSize.Width / TilesCount - Helpers.ThicknessHorizontal(Padding), clientSize.Height - Helpers.ThicknessVertical(Padding));
+                    break;
                 case ViewModes.TilesHorizontal:
-                    return CalcAppropriateSize(w, h, clientSize.Width - Helpers.ThicknessHorizontal(Padding), clientSize.Height / TilesCount - Helpers.ThicknessVertical(Padding));
+                    ret= CalcAppropriateSize(w, h, clientSize.Width - Helpers.ThicknessHorizontal(Padding), clientSize.Height / TilesCount - Helpers.ThicknessVertical(Padding));
+                    break;
                 default:
-                    return CalcAppropriateSize(w, h, clientSize.Width - Helpers.ThicknessHorizontal(Padding), clientSize.Height - Helpers.ThicknessVertical(Padding));
+                    ret = CalcAppropriateSize(w, h, clientSize.Width - Helpers.ThicknessHorizontal(Padding), clientSize.Height - Helpers.ThicknessVertical(Padding));
+                    break;
             }
-		}
+
+            if (SizeMode != SizeModes.Zoom)
+                Zoom = (float)(w / ret.Width);
+            return ret;
+        }
 
 		private Size CalcAppropriateSize(double w, double h, double fitWidth, double fitHeight)
 		{
