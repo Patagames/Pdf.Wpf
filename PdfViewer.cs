@@ -24,6 +24,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
     public partial class PdfViewer : Control, IScrollInfo
     {
         #region Private fields
+        private bool _preventStackOverflowBugWorkaround = false;
         private SelectInfo _selectInfo = new SelectInfo() { StartPage = -1 };
         private SortedDictionary<int, List<HighlightInfo>> _highlightedText = new SortedDictionary<int, List<HighlightInfo>>();
         private bool _mousePressed = false;
@@ -751,8 +752,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					FrameworkPropertyMetadataOptions.Journal | FrameworkPropertyMetadataOptions.AffectsArrange | FrameworkPropertyMetadataOptions.AffectsMeasure,
 					(o, e) =>
 					{
-						var viewer = (o as PdfViewer);
-						viewer.UpdateDocLayout();
+                        var viewer = (o as PdfViewer);
+                        if (viewer._preventStackOverflowBugWorkaround)
+                            return;
+                        viewer.UpdateDocLayout();
 						viewer.OnZoomChanged(EventArgs.Empty);
 					}));
 
@@ -957,16 +960,16 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		public static readonly DependencyProperty OptimizedLoadThresholdProperty =
 			DependencyProperty.Register("OptimizedLoadThreshold", typeof(int), typeof(PdfViewer),
 				new FrameworkPropertyMetadata(1000));
-		#endregion
+        #endregion
 
-		#region Public properties (dependency)
-		/// <summary>
-		/// Gets or sets blend mode which is used in drawing of acro forms.
-		/// </summary>
-		/// <remarks>
-		/// <para>Default value: <strong>FXDIB_BLEND_MULTIPLY</strong></para>
-		/// </remarks>
-		public BlendTypes FormsBlendMode
+        #region Public properties (dependency)
+        /// <summary>
+        /// Gets or sets blend mode which is used in drawing of acro forms.
+        /// </summary>
+        /// <remarks>
+        /// <para>Default value: <strong>FXDIB_BLEND_MULTIPLY</strong></para>
+        /// </remarks>
+        public BlendTypes FormsBlendMode
 		{
 			get { return (BlendTypes)GetValue(FormsBlendModeProperty); }
 			set { SetValue(FormsBlendModeProperty, value); }
@@ -3020,7 +3023,17 @@ namespace Patagames.Pdf.Net.Controls.Wpf
             }
 
             if (SizeMode != SizeModes.Zoom)
-                Zoom = (float)(w / ret.Width);
+            {
+                try
+                {
+                    _preventStackOverflowBugWorkaround = true;
+                    Zoom = (float)(w / ret.Width);
+                }
+                finally
+                {
+                    _preventStackOverflowBugWorkaround = false;
+                }
+            }
             return ret;
         }
 
@@ -3448,7 +3461,11 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 
             UpdateScrollBars(size);
-		}
+
+            //We should do this because we recalculate ZOOM in GetRenderRect which is called fromm Calc* methods
+            if (SizeMode != SizeModes.Zoom)
+                OnZoomChanged(EventArgs.Empty);
+        }
 
         private void UpdateScrollBars(Size size)
         {
