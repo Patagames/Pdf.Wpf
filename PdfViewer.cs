@@ -97,13 +97,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 		private Point _scrollPoint;
 		private bool _scrollPointSaved;
-		#endregion
+        private bool _smoothSelection;
+        #endregion
 
-		#region Events
-		/// <summary>
-		/// Occurs whenever the Document property is changed.
-		/// </summary>
-		public event EventHandler AfterDocumentChanged;
+        #region Events
+        /// <summary>
+        /// Occurs whenever the Document property is changed.
+        /// </summary>
+        public event EventHandler AfterDocumentChanged;
 
         /// <summary>
         /// Occurs immediately before the document property would be changed.
@@ -1819,7 +1820,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
             PdfCommon.DesignTimeActivation();
             LoadingIconText = Properties.Resources.LoadingText;
 			Background = SystemColors.ControlDarkBrush;
-			_fillForms = new PdfForms();
+            _smoothSelection = true;
+            _fillForms = new PdfForms();
 			CaptureFillForms(_fillForms);
 		}
 		#endregion
@@ -1903,7 +1905,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					return;
 
 				//Initialize the Canvas bitmap
-				_prPages.InitCanvas(new Helpers.Int32Size() { Width = cw, Height = ch });
+				_prPages.InitCanvas(new Helpers.Int32Size(cw, ch));
 				bool allPagesAreRendered = true;
 
 				PdfBitmap formsBitmap = null;
@@ -1930,7 +1932,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					//Load page if need
 					var pageHandle = Document.Pages[i].Handle;
 					if (_prPages.CanvasBitmap == null)
-						_prPages.InitCanvas(new Helpers.Int32Size() { Width = cw, Height = ch }); //The canvas was dropped due to the execution of scripts on the page while it loading.
+						_prPages.InitCanvas(new Helpers.Int32Size(cw, ch)); //The canvas was dropped due to the execution of scripts on the page while it loading.
 
 					//Draw page background
 					DrawPageBackColor(drawingContext, actualRect.X, actualRect.Y, actualRect.Width, actualRect.Height);
@@ -2389,17 +2391,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			foreach (var e in entries)
 			{
 				var textInfo = Document.Pages[pageIndex].Text.GetTextInfo(e.CharIndex, e.CharsCount);
-				foreach (var rc in textInfo.Rects)
-				{
-					var pt1 = PageToDevice(rc.left, rc.top, pageIndex);
-					var pt2 = PageToDevice(rc.right, rc.bottom, pageIndex);
-					int x = (int)((pt1.X < pt2.X ? pt1.X : pt2.X) * Helpers.Dpi / 72);
-					int y = (int)((pt1.Y < pt2.Y ? pt1.Y : pt2.Y) * Helpers.Dpi / 72);
-					int w = (int)((pt1.X > pt2.X ? pt1.X - pt2.X : pt2.X - pt1.X) * Helpers.Dpi / 72);
-					int h = (int)((pt1.Y > pt2.Y ? pt1.Y - pt2.Y : pt2.Y - pt1.Y) * Helpers.Dpi / 72);
-
-					bitmap.FillRectEx(x, y, w, h, Helpers.ToArgb(e.Color), FormsBlendMode);
-				}
+                var rects = NormalizeRects(textInfo.Rects, pageIndex);
+                foreach (var r in rects)
+                    bitmap.FillRectEx(r.X, r.Y, r.Width, r.Height, Helpers.ToArgb(e.Color), FormsBlendMode);
 			}
 		}
 
@@ -2442,18 +2436,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					len = (selInfo.EndIndex + 1) - s;
 
 				var ti = Document.Pages[pageIndex].Text.GetTextInfo(s, len);
-				foreach (var rc in ti.Rects)
-				{
-					var pt1 = PageToDevice(rc.left, rc.top, pageIndex);
-					var pt2 = PageToDevice(rc.right, rc.bottom, pageIndex);
-
-					int x = (int)((pt1.X < pt2.X ? pt1.X : pt2.X) * Helpers.Dpi / 72);
-					int y = (int)((pt1.Y < pt2.Y ? pt1.Y : pt2.Y) * Helpers.Dpi / 72);
-					int w = (int)((pt1.X > pt2.X ? pt1.X - pt2.X : pt2.X - pt1.X) * Helpers.Dpi / 72);
-					int h = (int)((pt1.Y > pt2.Y ? pt1.Y - pt2.Y : pt2.Y - pt1.Y) * Helpers.Dpi / 72);
-
-					bitmap.FillRectEx(x, y, w, h, Helpers.ToArgb(TextSelectColor), FormsBlendMode);
-				}
+                var rects = NormalizeRects(ti.Rects, pageIndex);
+                foreach (var r in rects)
+                    bitmap.FillRectEx(r.X, r.Y, r.Width, r.Height, Helpers.ToArgb(TextSelectColor), FormsBlendMode);
 			}
 		}
 
@@ -3122,7 +3107,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 		}
 
-		private Point PageToDevice(double x, double y, int pageIndex)
+		private Helpers.Int32Point PageToDevice(double x, double y, int pageIndex)
 		{
 			var rect = renderRects(pageIndex);
 			rect.X += _autoScrollPosition.X;
@@ -3135,10 +3120,21 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					PageRotation(Document.Pages[pageIndex]),
 					(float)x, (float)y,
 					out dx, out dy);
-			return new Point(dx, dy);
+			return new Helpers.Int32Point(dx, dy);
 		}
 
-		private PageRotate PageRotation(PdfPage pdfPage)
+        private Int32Rect PageToDeviceRect(FS_RECTF rc, int pageIndex)
+        {
+            var pt1 = PageToDevice(rc.left, rc.top, pageIndex);
+            var pt2 = PageToDevice(rc.right, rc.bottom, pageIndex);
+            int x = (pt1.X < pt2.X ? pt1.X : pt2.X) * Helpers.Dpi / 72;
+            int y = (pt1.Y < pt2.Y ? pt1.Y : pt2.Y) * Helpers.Dpi / 72;
+            int w = (pt1.X > pt2.X ? pt1.X - pt2.X : pt2.X - pt1.X) * Helpers.Dpi / 72;
+            int h = (pt1.Y > pt2.Y ? pt1.Y - pt2.Y : pt2.Y - pt1.Y) * Helpers.Dpi / 72;
+            return new Int32Rect(x, y, w, h);
+        }
+
+        private PageRotate PageRotation(PdfPage pdfPage)
 		{
 			int rot = pdfPage.Rotation - pdfPage.OriginalRotation;
 			if (rot < 0)
@@ -3175,7 +3171,65 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			return selTmp;
 		}
 
-		private Size CalcVertical()
+        private List<Int32Rect> NormalizeRects(IEnumerable<FS_RECTF> rects, int pageIndex)
+        {
+            List<Int32Rect> rows = new List<Int32Rect>();
+
+            if (!_smoothSelection)
+            {
+                foreach (var rc in rects)
+                    rows.Add(PageToDeviceRect(rc, pageIndex));
+                return rows;
+            }
+            
+            int left, right, top, bottom;
+            left = top = int.MaxValue;
+            right = bottom = int.MinValue;
+            float lowestBottom = float.NaN;
+            float highestTop = float.NaN;
+
+            foreach (var rc in rects)
+            {
+                //check if new row is required
+                if (float.IsNaN(lowestBottom))
+                {
+                    lowestBottom = rc.bottom;
+                    highestTop = rc.top;
+                }
+                else if (rc.top < lowestBottom || rc.bottom > highestTop)
+                {
+                    rows.Add(new Int32Rect(left, top, right - left, bottom - top));
+                    lowestBottom = rc.bottom;
+                    highestTop = rc.top;
+                    left = top = int.MaxValue;
+                    right = bottom = int.MinValue;
+                }
+                else
+                {
+                    if (lowestBottom > rc.bottom)
+                        lowestBottom = rc.bottom;
+                    if (highestTop < rc.top)
+                        highestTop = rc.top;
+                }
+
+                //calc client coordinates
+                Int32Rect deviceRect = PageToDeviceRect(rc, pageIndex);
+
+                //concatenate previous and current rectangle
+                if (left > deviceRect.X)
+                    left = deviceRect.X;
+                if (right < deviceRect.X + deviceRect.Width)
+                    right = deviceRect.X + deviceRect.Width;
+                if (top > deviceRect.Y)
+                    top = deviceRect.Y;
+                if (bottom < deviceRect.Y + deviceRect.Height)
+                    bottom = deviceRect.Y + deviceRect.Height;
+            }
+            rows.Add(new Int32Rect(left, top, right - left, bottom - top));
+            return rows;
+        }
+
+        private Size CalcVertical()
 		{
 			double width = 0;
 			Rect rrect = Rect.Empty;

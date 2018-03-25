@@ -140,11 +140,107 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			public int Width;
 			public int Height;
 
-			public bool Equals(Int32Size obj)
-			{
-				return (Width == obj.Width) && (Height == obj.Height);
-			}
-		}
+            public Int32Size(int width, int height)
+            {
+                Width = width;
+                Height = height;
+            }
 
-	}
+            public override bool Equals(object obj)
+            {
+                if (!(obj is Int32Size))
+                    return false;
+
+                var pt = (Int32Size)obj;
+                return Equals(pt);
+            }
+
+            public bool Equals(Int32Size obj)
+            {
+                if (!obj.Width.Equals(this.Width))
+                    return false;
+                if (!obj.Height.Equals(this.Height))
+                    return false;
+
+                return true;
+            }
+
+            public static bool operator ==(Int32Size left, Int32Size right)
+            {
+                return left.Equals(right);
+            }
+
+            public static bool operator !=(Int32Size left, Int32Size right)
+            {
+                return !(left == right);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked // Overflow is fine, just wrap
+                {
+                    int hash = 17;
+                    // Suitable nullity checks etc, of course :)
+                    hash = hash * 23 + Width.GetHashCode();
+                    hash = hash * 23 + Height.GetHashCode();
+                    return hash;
+                }
+            }
+        }
+
+        public struct Int32Point
+        {
+            public int X;
+            public int Y;
+
+            public Int32Point(int x, int y)
+            {
+                X = x;
+                Y = y;
+            }
+
+            public override bool Equals(object obj)
+            {
+                if (!(obj is Int32Point))
+                    return false;
+
+                var pt = (Int32Point)obj;
+                return Equals(pt);
+            }
+
+            public bool Equals(Int32Point obj)
+            {
+                if (!obj.X.Equals(this.X))
+                    return false;
+                if (!obj.Y.Equals(this.Y))
+                    return false;
+
+                return true;
+            }
+
+            public static bool operator ==(Int32Point left, Int32Point right)
+            {
+                return left.Equals(right);
+            }
+
+            public static bool operator !=(Int32Point left, Int32Point right)
+            {
+                return !(left == right);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked // Overflow is fine, just wrap
+                {
+                    int hash = 17;
+                    // Suitable nullity checks etc, of course :)
+                    hash = hash * 23 + X.GetHashCode();
+                    hash = hash * 23 + Y.GetHashCode();
+                    return hash;
+                }
+            }
+
+        }
+
+    }
 }
