@@ -10,9 +10,9 @@ using System.Windows;
 //      Build Number - BugFixes
 //      Revision -.Net framework
 
-////Patagames.Pdf.Wpf
-[assembly: AssemblyInformationalVersion("3.21.2704")]  //Should be equal to save property of Patagames.Pdf assembly
-[assembly: AssemblyVersion("3.14.5." +
+//---------------------------- WPF Viewer -------------------------------------------------
+[assembly: AssemblyInformationalVersion("3.22.2704")]  //Should be equal to save property of Patagames.Pdf assembly
+[assembly: AssemblyVersion("3.14.6." +
 #if DOTNET20
 "20"
 #elif DOTNET30

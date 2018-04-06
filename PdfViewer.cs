@@ -1916,9 +1916,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					Rect actualRect = CalcActualRect(i);
 					if (!actualRect.IntersectsWith(ClientRect))
 					{
-						if(PageAutoDispose)
-							Document.Pages[i].Dispose();
-						continue; //Page is invisible. Skip it
+                        if (PageAutoDispose && !_highlightedText.ContainsKey(i) && (_selectInfo.StartPage > i || _selectInfo.EndPage < i))
+                            Document.Pages[i].Dispose();  //do not dispose the page if it contains highlighted  or selected text. fix for #052325
+                        continue; //Page is invisible. Skip it
 					}
 
 					if (!_renderRects[i].IsChecked)
