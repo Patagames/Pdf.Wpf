@@ -608,6 +608,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                                 oldValue.Pages.PageInserted -= viewer.Pages_PageInserted;
                                 oldValue.Pages.PageDeleted -= viewer.Pages_PageDeleted;
                                 oldValue.Pages.ProgressiveRender -= viewer.Pages_ProgressiveRender;
+                                if (oldValue.FormFill == viewer._fillForms)
+                                    oldValue.FormFill = null;
                             }
                             viewer._extent = new Size(0, 0);
                             viewer._selectInfo = new SelectInfo() { StartPage = -1 };
@@ -621,6 +623,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                             viewer.UpdateDocLayout();
                             if (newValue != null)
                             {
+                                if (newValue.FormFill == null)
+                                    newValue.FormFill = viewer._fillForms;
+
                                 if (newValue.FormFill != viewer._fillForms)
                                     viewer._externalDocCapture = viewer.CaptureFillForms(newValue.FormFill);
                                 newValue.Pages.CurrentPageChanged += viewer.Pages_CurrentPageChanged;
