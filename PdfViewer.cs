@@ -1701,25 +1701,28 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </remarks>
 		public void LoadDocument(string path, string password = null)
 		{
-			try {
+            PdfDocument doc = null;
+            try
+            {
 				CloseDocument();
                 if (Document != null)
-                    return; //closing was canceled
-				var doc = PdfDocument.Load(path, _fillForms, password);
-                Document = doc;
+                    return; //closing or changing was canceled
+                Document = doc = PdfDocument.Load(path, _fillForms, password);
                 if (Document == null)
-                {
-                    doc.Dispose(); //Can't set Document due to TwoWay binding mode
-                    return;
-                }
-				_loadedByViewer = true;
+                    return; //Can't set Document due to TwoWay binding mode or closing or changing was canceled
+                _loadedByViewer = true;
 				OnDocumentLoaded(EventArgs.Empty);
 			}
 			catch (NoLicenseException ex)
 			{
 				MessageBox.Show(ex.Message, Properties.Resources.InfoHeader, MessageBoxButton.OK, MessageBoxImage.Information);
 			}
-		}
+            finally
+            {
+                if (Document == null && doc != null)
+                    doc.Dispose();
+            }
+        }
 
 		/// <summary>
 		/// Loads the PDF document from the specified stream.
@@ -1741,17 +1744,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </remarks>
 		public void LoadDocument(Stream stream, string password = null)
 		{
-			try {
+            PdfDocument doc = null;
+            try
+            {
 				CloseDocument();
                 if (Document != null)
-                    return; //closing was canceled
-                var doc = PdfDocument.Load(stream, _fillForms, password);
-                Document = doc;
+                    return; //closing or changing was canceled
+                Document = doc = PdfDocument.Load(stream, _fillForms, password);
                 if (Document == null)
-                {
-                    doc.Dispose(); //Can't set Document due to TwoWay binding mode
-                    return;
-                }
+                    return; //Can't set Document due to TwoWay binding mode or closing or changing was canceled
                 _loadedByViewer = true;
 				OnDocumentLoaded(EventArgs.Empty);
 			}
@@ -1759,7 +1760,12 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			{
 				MessageBox.Show(ex.Message, Properties.Resources.InfoHeader, MessageBoxButton.OK, MessageBoxImage.Information);
 			}
-		}
+            finally
+            {
+                if (Document == null && doc != null)
+                    doc.Dispose();
+            }
+        }
 
 		/// <summary>
 		/// Loads the PDF document from the specified byte array.
@@ -1781,17 +1787,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </remarks>
 		public void LoadDocument(byte[] pdf, string password = null)
 		{
-			try {
+            PdfDocument doc = null;
+            try
+            {
 				CloseDocument();
                 if (Document != null)
-                    return; //closing was canceled
-                var doc = PdfDocument.Load(pdf, _fillForms, password);
-                Document = doc;
+                    return; //closing or changing was canceled
+                Document = doc = PdfDocument.Load(pdf, _fillForms, password);
                 if (Document == null)
-                {
-                    doc.Dispose(); //Can't set Document due to TwoWay binding mode
-                    return;
-                }
+                    return; //Can't set Document due to TwoWay binding mode or closing or changing was canceled
                 _loadedByViewer = true;
 				OnDocumentLoaded(EventArgs.Empty);
 			}
@@ -1799,7 +1803,12 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			{
 				MessageBox.Show(ex.Message, Properties.Resources.InfoHeader, MessageBoxButton.OK, MessageBoxImage.Information);
 			}
-		}
+            finally
+            {
+                if (Document == null && doc != null)
+                    doc.Dispose();
+            }
+        }
 
 		/// <summary>
 		/// Close a loaded PDF document.
