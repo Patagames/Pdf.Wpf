@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Media;
@@ -8,43 +6,46 @@ using System.Windows.Media.Imaging;
 
 namespace Patagames.Pdf.Net.Controls.Wpf
 {
-	class Helpers
+	internal class Helpers
 	{
         static Helpers()
         {
-            // This will require restart the app if DPI is changed
-            // but it is too much overhead to check it on each conversion
             var flags = BindingFlags.NonPublic | BindingFlags.Static;
             var dpiProperty = typeof(SystemParameters).GetProperty("Dpi", flags);
-
             Dpi = (int)dpiProperty.GetValue(null, null);
         }
 
         #region DPIhandling
+        /// <summary>
+        /// Gets current logical DPI
+        /// </summary>
+        /// <remarks>
+        /// This will require restart the app if DPI is changed
+        /// but it is too much overhead to check it on each conversion
+        /// </remarks>
+        public static int Dpi { get; private set; }
 
-        internal static int Dpi { get; private set; }
-
-		internal static int PointsToPixels(double points, int dpi)
-		{
-			return (int)(points * dpi / 72.0);
-		}
-
-		internal static int PointsToPixels(double points)
+        /// <summary>
+        /// Convert WPF units (DIPs - device independent pixels) to physical pixels.
+        /// </summary>
+        /// <param name="units">Device independent pixels</param>
+        /// <returns>Physical pixels</returns>
+        /// <remarks>1 DIP = 1/96 DPI</remarks>
+        public static int UnitsToPixels(double units)
         {
-			return PointsToPixels(points, Dpi);
+            return (int)(units / 96 * Dpi);
+        }
 
-		}
-
-		internal static double PixelsToPoints(int pixels, int dpi)
-		{
-			return pixels * 72.0 / dpi;
-		}
-
-		internal static double PixelsToPoints(int pixels)
+        /// <summary>
+        /// Convert physical pixels to WPF units (DIPs - device independent pixels)
+        /// </summary>
+        /// <param name="pixels">Physical pixels</param>
+        /// <returns>Device independent pixels</returns>
+        /// <remarks>1 DIP = 1/96 DPI</remarks>
+        public static double PixelsToUnits(int pixels)
         {
-			return PixelsToPoints(pixels, Dpi);
-
-		}
+            return (double)pixels * 96.0 / Dpi;
+        }
 
         #endregion DPIhandling
 
@@ -117,25 +118,116 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			return pageMargin.Top + pageMargin.Bottom;
         }
-		#endregion
+        #endregion
 
-		#region Render
-		internal static void DrawImageUnscaled(DrawingContext drawingContext, WriteableBitmap wpfBmp, double x, double y)
+        #region Render
+        public static void DrawImageUnscaled(DrawingContext drawingContext, WriteableBitmap wpfBmp, double x, double y)
 		{
-			drawingContext.DrawImage(wpfBmp, new Rect(x, y, PixelsToPoints(wpfBmp.PixelWidth), PixelsToPoints(wpfBmp.PixelHeight)));
+			drawingContext.DrawImage(wpfBmp, new Rect(x, y, PixelsToUnits(wpfBmp.PixelWidth), PixelsToUnits(wpfBmp.PixelHeight)));
 		}
-		internal static void FillRectangle(DrawingContext drawingContext, Brush brush, Rect rect)
+        public static void FillRectangle(DrawingContext drawingContext, Brush brush, Rect rect)
 		{
 			drawingContext.DrawRectangle(brush, null, rect);
 		}
 
-		internal static void DrawRectangle(DrawingContext drawingContext, Pen pen, Rect rect)
+        public static void DrawRectangle(DrawingContext drawingContext, Pen pen, Rect rect)
 		{
 			drawingContext.DrawRectangle(null, pen, rect);
 		}
-		#endregion
 
-		public struct Int32Size
+        /// <summary>
+        /// Calculate pixel offset to prevent image blur.
+        /// </summary>
+        /// <param name="UI">UIElement in which the offset is calculated.</param>
+        /// <returns>The offset point</returns>
+        public static Point GetPixelOffset(UIElement UI)
+        {
+            Point pixelOffset = new Point();
+
+            PresentationSource ps = PresentationSource.FromVisual(UI);
+            if (ps != null)
+            {
+                Visual rootVisual = ps.RootVisual;
+
+                // Transform (0,0) from this element up to pixels.
+                pixelOffset = UI.TransformToAncestor(rootVisual).Transform(pixelOffset);
+                pixelOffset = ApplyVisualTransform(pixelOffset, rootVisual, false);
+                pixelOffset = ps.CompositionTarget.TransformToDevice.Transform(pixelOffset);
+
+                // Round the origin to the nearest whole pixel.
+                pixelOffset.X = Math.Round(pixelOffset.X);
+                pixelOffset.Y = Math.Round(pixelOffset.Y);
+
+                // Transform the whole-pixel back to this element.
+                pixelOffset = ps.CompositionTarget.TransformFromDevice.Transform(pixelOffset);
+                pixelOffset = ApplyVisualTransform(pixelOffset, rootVisual, true);
+                pixelOffset = rootVisual.TransformToDescendant(UI).Transform(pixelOffset);
+            }
+
+            return pixelOffset;
+        }
+
+        private static Point ApplyVisualTransform(Point point, Visual v, bool inverse)
+        {
+            bool success = true;
+            return TryApplyVisualTransform(point, v, inverse, true, out success);
+        }
+
+        private static Point TryApplyVisualTransform(Point point, Visual v, bool inverse, bool throwOnError, out bool success)
+        {
+            success = true;
+            if (v != null)
+            {
+                Matrix visualTransform = GetVisualTransform(v);
+                if (inverse)
+                {
+                    if (!throwOnError && !visualTransform.HasInverse)
+                    {
+                        success = false;
+                        return new Point(0, 0);
+                    }
+                    visualTransform.Invert();
+                }
+                point = visualTransform.Transform(point);
+            }
+            return point;
+        }
+
+        /// <summary>
+        /// Gets the matrix that will convert a point from "above" the
+        /// coordinate space of a visual into the the coordinate space
+        /// "below" the visual.
+        /// </summary>
+        /// <param name="v">Visual</param>
+        /// <returns>Matrix</returns>
+        private static Matrix GetVisualTransform(Visual v)
+        {
+            if (v != null)
+            {
+                Matrix m = Matrix.Identity;
+
+                Transform transform = VisualTreeHelper.GetTransform(v);
+                if (transform != null)
+                {
+                    Matrix cm = transform.Value;
+                    m = Matrix.Multiply(m, cm);
+                }
+
+                Vector offset = VisualTreeHelper.GetOffset(v);
+                m.Translate(offset.X, offset.Y);
+
+                return m;
+            }
+
+            return Matrix.Identity;
+        }
+        #endregion
+
+        #region Int32 structures which are missing in WPF
+        /// <summary>
+        /// Represents Int32 size
+        /// </summary>
+        public struct Int32Size
 		{
 			public int Width;
 			public int Height;
@@ -188,6 +280,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
             }
         }
 
+        /// <summary>
+        /// Represents Int32 point
+        /// </summary>
         public struct Int32Point
         {
             public int X;
@@ -241,6 +336,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
             }
 
         }
+        #endregion
 
     }
 }

@@ -1909,8 +1909,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				//For store coordinates of pages separators
 				var separator = new List<Point>();
 
-				int cw = Helpers.PointsToPixels(ClientRect.Width);
-				int ch = Helpers.PointsToPixels(ClientRect.Height);
+				int cw = Helpers.UnitsToPixels(ClientRect.Width);
+				int ch = Helpers.UnitsToPixels(ClientRect.Height);
 				if (cw <= 0 || ch <= 0)
 					return;
 
@@ -1954,10 +1954,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 						if (formsBitmap == null)
 							formsBitmap = new PdfBitmap(_prPages.CanvasSize.Width, _prPages.CanvasSize.Height, true);
 						//Copy image of rendered page from canvas bitmap to newly created bitmap
-						int ax = Helpers.PointsToPixels(actualRect.X);
-						int ay = Helpers.PointsToPixels(actualRect.Y);
-						int aw = Helpers.PointsToPixels(actualRect.Width);
-						int ah = Helpers.PointsToPixels(actualRect.Height);
+						int ax = Helpers.UnitsToPixels(actualRect.X);
+						int ay = Helpers.UnitsToPixels(actualRect.Y);
+						int aw = Helpers.UnitsToPixels(actualRect.Width);
+						int ah = Helpers.UnitsToPixels(actualRect.Height);
 						Pdfium.FPDFBitmap_CompositeBitmap(formsBitmap.Handle, ax, ay, aw, ah, _prPages.CanvasBitmap.Handle, ax, ay, BlendTypes.FXDIB_BLEND_NORMAL);
 						//Draw fillForms to newly create bitmap
 						DrawFillForms(formsBitmap, Document.Pages[i], actualRect);
@@ -2281,14 +2281,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			if (actualRect.Width <= 0 || actualRect.Height <= 0)
 				return true;
-			int width = Helpers.PointsToPixels(actualRect.Width);
-			int height = Helpers.PointsToPixels(actualRect.Height);
+			int width = Helpers.UnitsToPixels(actualRect.Width);
+			int height = Helpers.UnitsToPixels(actualRect.Height);
 			if (width <= 0 || height <= 0)
 				return true;
 
 			var pageRect = new Int32Rect(
-				Helpers.PointsToPixels(actualRect.X), 
-				Helpers.PointsToPixels(actualRect.Y), width, height);
+				Helpers.UnitsToPixels(actualRect.X), 
+				Helpers.UnitsToPixels(actualRect.Y), width, height);
 			return _prPages.RenderPage(page, pageRect, PageRotation(page), RenderFlags, UseProgressiveRender);
 		}
 
@@ -2318,10 +2318,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
         /// </remarks>
         protected virtual void DrawFillForms(PdfBitmap bitmap, PdfPage page, Rect actualRect)
 		{
-			int x = Helpers.PointsToPixels(actualRect.X);
-			int y = Helpers.PointsToPixels(actualRect.Y);
-			int width = Helpers.PointsToPixels(actualRect.Width);
-			int height = Helpers.PointsToPixels(actualRect.Height);
+			int x = Helpers.UnitsToPixels(actualRect.X);
+			int y = Helpers.UnitsToPixels(actualRect.Y);
+			int width = Helpers.UnitsToPixels(actualRect.Width);
+			int height = Helpers.UnitsToPixels(actualRect.Height);
 
 			//Draw fillforms to bitmap
 			page.RenderForms(bitmap, x, y, width, height, PageRotation(page), RenderFlags);
@@ -2357,10 +2357,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				return;
 			foreach (var selectRc in selectedRectangles)
 			{
-				int x = (int)(selectRc.X * Helpers.Dpi / 72);
-				int y = (int)(selectRc.Y * Helpers.Dpi / 72);
-				int w = (int)(selectRc.Width * Helpers.Dpi / 72);
-				int h = (int)(selectRc.Height * Helpers.Dpi / 72);
+				int x = Helpers.UnitsToPixels(selectRc.X);
+				int y = Helpers.UnitsToPixels(selectRc.Y);
+				int w = Helpers.UnitsToPixels(selectRc.Width);
+				int h = Helpers.UnitsToPixels(selectRc.Height);
 
 				bitmap.FillRectEx(x, y, w, h, Helpers.ToArgb(TextSelectColor), FormsBlendMode);
 			}
@@ -2682,7 +2682,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			else
 				_canvasWpfBitmap.WritePixels(new Int32Rect(0, 0, canvasWidth, canvasHeight), formsBitmap.Buffer, canvasStride * canvasHeight, canvasStride, 0, 0);
 
-			Helpers.DrawImageUnscaled(drawingContext, _canvasWpfBitmap, 0, 0);
+            var _pixelOffset = Helpers.GetPixelOffset(this);
+            Helpers.DrawImageUnscaled(drawingContext, _canvasWpfBitmap, _pixelOffset.X, _pixelOffset.Y);
 		}
 
 		/// <summary>
@@ -3004,11 +3005,11 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			double w, h;
 			Pdfium.FPDF_GetPageSizeByIndex(Document.Handle, index, out w, out h);
 
-			//converts PDF points which is 1/72 inch to WPF DIU (Device Independed Units) which is 96 units per inch.
-			w = w / 72.0 * 96;
-			h = h / 72.0 * 96;
+            //converts PDF points which is 1/72 inch to WPF DIPs (Device Independed Pixels) which is 96 units per inch.
+            w = w / 72.0 * 96;
+            h = h / 72.0 * 96;
 
-			double nw = clientSize.Width;
+            double nw = clientSize.Width;
 			double nh = h * nw / w;
 
             Size ret;
@@ -3146,10 +3147,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
         {
             var pt1 = PageToDevice(rc.left, rc.top, pageIndex);
             var pt2 = PageToDevice(rc.right, rc.bottom, pageIndex);
-            int x = (pt1.X < pt2.X ? pt1.X : pt2.X) * Helpers.Dpi / 72;
-            int y = (pt1.Y < pt2.Y ? pt1.Y : pt2.Y) * Helpers.Dpi / 72;
-            int w = (pt1.X > pt2.X ? pt1.X - pt2.X : pt2.X - pt1.X) * Helpers.Dpi / 72;
-            int h = (pt1.Y > pt2.Y ? pt1.Y - pt2.Y : pt2.Y - pt1.Y) * Helpers.Dpi / 72;
+            int x = Helpers.UnitsToPixels(pt1.X < pt2.X ? pt1.X : pt2.X);
+            int y = Helpers.UnitsToPixels(pt1.Y < pt2.Y ? pt1.Y : pt2.Y);
+            int w = Helpers.UnitsToPixels(pt1.X > pt2.X ? pt1.X - pt2.X : pt2.X - pt1.X);
+            int h = Helpers.UnitsToPixels(pt1.Y > pt2.Y ? pt1.Y - pt2.Y : pt2.Y - pt1.Y);
             return new Int32Rect(x, y, w, h);
         }
 
