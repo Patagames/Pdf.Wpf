@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using Patagames.Pdf.Enums;
 using System.Windows;
 using System.Windows.Media;
+using Patagames.Pdf.Net.EventArguments;
 
 namespace Patagames.Pdf.Net.Controls.Wpf
 {
 	internal class PRCollection : Dictionary<PdfPage, PRItem>
 	{
-		private PdfBitmap _canvasBitmap = null;
+        internal event EventHandler<EventArgs<Int32Rect>> PaintBackground = null;
+        private PdfBitmap _canvasBitmap = null;
 		private int _waitTime;
 		private long _prevTicks;
 
@@ -20,7 +22,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			if (_canvasBitmap == null)
 			{
-				_canvasBitmap = new PdfBitmap(size.Width, size.Height, true);
+				_canvasBitmap = new PdfBitmap(size.Width, size.Height, false);
 				CanvasSize = size;
 			}
 
@@ -83,9 +85,13 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		internal bool RenderPage(PdfPage page, Int32Rect pageRect, PageRotate pageRotate, RenderFlags renderFlags, bool useProgressiveRender)
 		{
 			if (!this.ContainsKey(page))
-				ProcessNew(page); //Add new page into collection
+            {
+                ProcessNew(page); //Add new page into collection
+                if (PaintBackground != null)
+                    PaintBackground(this, new EventArgs<Int32Rect>(pageRect));
+            }
 
-			if ((renderFlags & (RenderFlags.FPDF_THUMBNAIL | RenderFlags.FPDF_HQTHUMBNAIL)) != 0)
+            if ((renderFlags & (RenderFlags.FPDF_THUMBNAIL | RenderFlags.FPDF_HQTHUMBNAIL)) != 0)
 				this[page].status = ProgressiveRenderingStatuses.RenderDone + 4;
 			else if (!useProgressiveRender)
 				this[page].status = ProgressiveRenderingStatuses.RenderDone + 3;
