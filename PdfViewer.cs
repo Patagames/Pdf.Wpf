@@ -1875,32 +1875,33 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			base.OnMouseLeave(e);
 		}
 
-		/// <summary>
-		/// When overridden in a derived class, participates in rendering operations that are directed by the layout system. 
-		/// The rendering instructions for this element are not used directly when this method is invoked, and are instead 
-		/// preserved for later asynchronous use by layout and drawing.
-		/// </summary>
-		/// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system. </param>
-		/// <remarks>
-		/// The OnRender method can be overridden to add further graphical elements (not previously defined in a logical tree) to a rendered element, such as effects or adorners. A DrawingContext object is passed as an argument, which provides methods for drawing shapes, text, images or videos.
-		/// Full page rendering is performed in the following order:
-		/// <list type="bullet">
-		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
-		/// <item><see cref="DrawFillForms"/></item>
-		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
-		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// </list>
-		/// </remarks>
-		protected override void OnRender(DrawingContext drawingContext)
+        /// <summary>
+        /// When overridden in a derived class, participates in rendering operations that are directed by the layout system. 
+        /// The rendering instructions for this element are not used directly when this method is invoked, and are instead 
+        /// preserved for later asynchronous use by layout and drawing.
+        /// </summary>
+        /// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system. </param>
+        /// <remarks>
+        /// The OnRender method can be overridden to add further graphical elements (not previously defined in a logical tree) to a rendered element, such as effects or adorners. A DrawingContext object is passed as an argument, which provides methods for drawing shapes, text, images or videos.
+        /// Full page rendering is performed in the following order:
+        /// <list type="bullet">
+        /// <item><see cref="DrawPageBackColor"/></item>
+        /// <item><see cref="DrawPage"/></item>
+        /// <item><see cref="DrawFillForms"/></item>
+        /// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
+        /// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
+        /// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
+        /// <item><see cref="DrawRenderedPagesToDevice"/></item>
+        /// <item><see cref="DrawPageSeparators"/></item>
+        /// <item><see cref="DrawLoadingIcon"/> if page is still drawing</item>
+        /// <item><see cref="DrawPageBorder"/></item>
+        /// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
+        /// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
+        /// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
+        /// <item><see cref="DrawCurrentPageHighlight"/></item>
+        /// </list>
+        /// </remarks>
+        protected override void OnRender(DrawingContext drawingContext)
 		{
 			Helpers.FillRectangle(drawingContext, Background, ClientRect);
 
@@ -1920,8 +1921,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				//Initialize the Canvas bitmap
 				_prPages.InitCanvas(new Helpers.Int32Size(cw, ch));
 				bool allPagesAreRendered = true;
+                bool[] stillLoading = new bool[_endPage + 1];
 
-				PdfBitmap formsBitmap = null;
+                PdfBitmap formsBitmap = null;
 				//Drawing PART 1. Page content into canvas and some other things
 				for (int i = _startPage; i <= _endPage; i++)
 				{
@@ -1950,18 +1952,20 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					//Draw page
 					bool isPageDrawn = DrawPage(_prPages.CanvasBitmap, Document.Pages[i], actualRect);
 					allPagesAreRendered &= isPageDrawn;
+                    stillLoading[i] = !isPageDrawn;
 
-					if (isPageDrawn)  //Draw fill forms
+                    //Create new bitmap for fillforms if need
+                    if (formsBitmap == null)
+                        formsBitmap = new PdfBitmap(_prPages.CanvasSize.Width, _prPages.CanvasSize.Height, true);
+                    //Copy image of rendered page from canvas bitmap to fillforms bitmap
+                    int ax = Helpers.UnitsToPixels(actualRect.X);
+                    int ay = Helpers.UnitsToPixels(actualRect.Y);
+                    int aw = Helpers.UnitsToPixels(actualRect.Width);
+                    int ah = Helpers.UnitsToPixels(actualRect.Height);
+                    Pdfium.FPDFBitmap_CompositeBitmap(formsBitmap.Handle, ax, ay, aw, ah, _prPages.CanvasBitmap.Handle, ax, ay, BlendTypes.FXDIB_BLEND_NORMAL);
+
+                    if (isPageDrawn)
 					{
-						//Create new bitmap if need
-						if (formsBitmap == null)
-							formsBitmap = new PdfBitmap(_prPages.CanvasSize.Width, _prPages.CanvasSize.Height, true);
-						//Copy image of rendered page from canvas bitmap to newly created bitmap
-						int ax = Helpers.UnitsToPixels(actualRect.X);
-						int ay = Helpers.UnitsToPixels(actualRect.Y);
-						int aw = Helpers.UnitsToPixels(actualRect.Width);
-						int ah = Helpers.UnitsToPixels(actualRect.Height);
-						Pdfium.FPDFBitmap_CompositeBitmap(formsBitmap.Handle, ax, ay, aw, ah, _prPages.CanvasBitmap.Handle, ax, ay, BlendTypes.FXDIB_BLEND_NORMAL);
 						//Draw fillForms to newly create bitmap
 						DrawFillForms(formsBitmap, Document.Pages[i], actualRect);
 						//Draw fillform selection
@@ -1972,8 +1976,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 						//Draw text selection
 						DrawTextSelection(formsBitmap, selTmp, i);
 					}
-					else if (ShowLoadingIcon) //or loading icons
-						DrawLoadingIcon(drawingContext, Document.Pages[i], actualRect);
 					
 					//Calc coordinates for page separator
 					CalcPageSeparator(actualRect, i, ref separator);
@@ -1995,8 +1997,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					if (!actualRect.IntersectsWith(ClientRect))
 						continue; //Page is invisible. Skip it
 
-					//Draw page border
-					DrawPageBorder(drawingContext, actualRect);
+                    if (ShowLoadingIcon && stillLoading[i]) //draw loading icons
+                        DrawLoadingIcon(drawingContext, Document.Pages[i], actualRect);
+                    //Draw page border
+                    DrawPageBorder(drawingContext, actualRect);
 					//Draw fillforms selection
 					DrawFillFormsSelection(drawingContext, _selectedRectangles);
 					//Draw text highlight
@@ -2233,22 +2237,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
         /// <param name="width">Actual width of the page</param>
         /// <param name="height">Actual height of the page</param>
         /// <remarks>
-        /// Full page rendering is performed in the following order:
-        /// <list type="bullet">
-        /// <item><see cref="DrawPageBackColor"/></item>
-        /// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
-        /// <item><see cref="DrawFillForms"/></item>
-        /// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
-        /// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
-        /// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
-        /// <item><see cref="DrawRenderedPagesToDevice"/></item>
-        /// <item><see cref="DrawPageSeparators"/></item>
-        /// <item><see cref="DrawPageBorder"/></item>
-        /// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
-        /// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
-        /// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
-        /// <item><see cref="DrawCurrentPageHighlight"/></item>
-        /// </list>
+        /// Please see the remarks section of <see cref="OnRender"/> for getting more info about page rendering order.
         /// </remarks>
         protected virtual void DrawPageBackColor(PdfBitmap bitmap, int x, int y, int width, int height)
 		{
@@ -2262,22 +2251,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
         /// <param name="page">Page to be drawn</param>
         /// <param name="actualRect">Page bounds in control coordinates</param>
         /// <remarks>
-        /// Full page rendering is performed in the following order:
-        /// <list type="bullet">
-        /// <item><see cref="DrawPageBackColor"/></item>
-        /// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
-        /// <item><see cref="DrawFillForms"/></item>
-        /// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
-        /// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
-        /// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
-        /// <item><see cref="DrawRenderedPagesToDevice"/></item>
-        /// <item><see cref="DrawPageSeparators"/></item>
-        /// <item><see cref="DrawPageBorder"/></item>
-        /// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
-        /// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
-        /// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
-        /// <item><see cref="DrawCurrentPageHighlight"/></item>
-        /// </list>
+        /// Please see the remarks section of <see cref="OnRender"/> for getting more info about page rendering order.
         /// </remarks>
         /// <returns>true if page was rendered; false if any error is occurred or page is still rendering.</returns>
         protected virtual bool DrawPage(PdfBitmap bitmap, PdfPage page, Rect actualRect)
@@ -2302,22 +2276,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
         /// <param name="page">Page to be drawn</param>
         /// <param name="actualRect">Page bounds in control coordinates</param>
         /// <remarks>
-        /// Full page rendering is performed in the following order:
-        /// <list type="bullet">
-        /// <item><see cref="DrawPageBackColor"/></item>
-        /// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
-        /// <item><see cref="DrawFillForms"/></item>
-        /// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
-        /// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
-        /// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
-        /// <item><see cref="DrawRenderedPagesToDevice"/></item>
-        /// <item><see cref="DrawPageSeparators"/></item>
-        /// <item><see cref="DrawPageBorder"/></item>
-        /// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
-        /// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
-        /// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
-        /// <item><see cref="DrawCurrentPageHighlight"/></item>
-        /// </list>
+        /// Please see the remarks section of <see cref="OnRender"/> for getting more info about page rendering order.
         /// </remarks>
         protected virtual void DrawFillForms(PdfBitmap bitmap, PdfPage page, Rect actualRect)
 		{
@@ -2331,30 +2290,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		}
 
 
-		/// <summary>
-		/// Draws highlights inside a forms
-		/// </summary>
-		/// <param name="bitmap">The drawing surface.</param>
-		/// <param name="selectedRectangles">A collection of rectangles to be drawn</param>
-		/// <remarks>
-		/// Full page rendering is performed in the following order:
-		/// <list type="bullet">
-		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
-		/// <item><see cref="DrawFillForms"/></item>
-		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
-		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// </list>
-		/// </remarks>
-		protected virtual void DrawFillFormsSelection(PdfBitmap bitmap, List<Rect> selectedRectangles)
+        /// <summary>
+        /// Draws highlights inside a forms
+        /// </summary>
+        /// <param name="bitmap">The drawing surface.</param>
+        /// <param name="selectedRectangles">A collection of rectangles to be drawn</param>
+        /// <remarks>
+        /// Please see the remarks section of <see cref="OnRender"/> for getting more info about page rendering order.
+        /// </remarks>
+        protected virtual void DrawFillFormsSelection(PdfBitmap bitmap, List<Rect> selectedRectangles)
 		{
 			if (selectedRectangles == null)
 				return;
@@ -2369,31 +2313,16 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 		}
 
-		/// <summary>
-		/// Draws text highlights
-		/// </summary>
-		/// <param name="bitmap">The drawing surface.</param>
-		/// <param name="entries">Highlights info.</param>
-		/// <param name="pageIndex">Page index to be drawn</param>
-		/// <remarks>
-		/// Full page rendering is performed in the following order:
-		/// <list type="bullet">
-		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
-		/// <item><see cref="DrawFillForms"/></item>
-		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
-		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// </list>
-		/// </remarks>
-		protected virtual void DrawTextHighlight(PdfBitmap bitmap, List<HighlightInfo> entries, int pageIndex)
+        /// <summary>
+        /// Draws text highlights
+        /// </summary>
+        /// <param name="bitmap">The drawing surface.</param>
+        /// <param name="entries">Highlights info.</param>
+        /// <param name="pageIndex">Page index to be drawn</param>
+        /// <remarks>
+        /// Please see the remarks section of <see cref="OnRender"/> for getting more info about page rendering order.
+        /// </remarks>
+        protected virtual void DrawTextHighlight(PdfBitmap bitmap, List<HighlightInfo> entries, int pageIndex)
 		{
 			if (entries == null)
 				return;
@@ -2407,31 +2336,16 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 		}
 
-		/// <summary>
-		/// Draws text selection
-		/// </summary>
-		/// <param name="bitmap">The drawing surface.</param>
-		/// <param name="selInfo">Selection info</param>
-		/// <param name="pageIndex">Page index to be drawn</param>
-		/// <remarks>
-		/// Full page rendering is performed in the following order:
-		/// <list type="bullet">
-		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
-		/// <item><see cref="DrawFillForms"/></item>
-		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
-		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// </list>
-		/// </remarks>
-		protected virtual void DrawTextSelection(PdfBitmap bitmap, SelectInfo selInfo, int pageIndex)
+        /// <summary>
+        /// Draws text selection
+        /// </summary>
+        /// <param name="bitmap">The drawing surface.</param>
+        /// <param name="selInfo">Selection info</param>
+        /// <param name="pageIndex">Page index to be drawn</param>
+        /// <remarks>
+        /// Please see the remarks section of <see cref="OnRender"/> for getting more info about page rendering order.
+        /// </remarks>
+        protected virtual void DrawTextSelection(PdfBitmap bitmap, SelectInfo selInfo, int pageIndex)
 		{
 			if (selInfo.StartPage < 0 || !_isShowSelection)
 				return;
@@ -2452,31 +2366,16 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 		}
 
-		/// <summary>
-		/// Draw loading icon
-		/// </summary>
-		/// <param name="drawingContext">Drawing context</param>
-		/// <param name="page">Page to be drawn</param>
-		/// <param name="actualRect">Page bounds in control coordinates</param>
-		/// <remarks>
-		/// Full page rendering is performed in the following order:
-		/// <list type="bullet">
-		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
-		/// <item><see cref="DrawFillForms"/></item>
-		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
-		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// </list>
-		/// </remarks>
-		protected virtual void DrawLoadingIcon(DrawingContext drawingContext, PdfPage page, Rect actualRect)
+        /// <summary>
+        /// Draw loading icon
+        /// </summary>
+        /// <param name="drawingContext">Drawing context</param>
+        /// <param name="page">Page to be drawn</param>
+        /// <param name="actualRect">Page bounds in control coordinates</param>
+        /// <remarks>
+        /// Please see the remarks section of <see cref="OnRender"/> for getting more info about page rendering order.
+        /// </remarks>
+        protected virtual void DrawLoadingIcon(DrawingContext drawingContext, PdfPage page, Rect actualRect)
 		{
 			Typeface tf = new Typeface("Tahoma");
 			var ft = new FormattedText(
@@ -2497,146 +2396,71 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			drawingContext.DrawText(ft, new Point(x, y));
 		}
 
-		/// <summary>
-		/// Draws page's border
-		/// </summary>
-		/// <param name="drawingContext">The drawing context</param>
-		/// <param name="BBox">Page's bounding box</param>
-		/// <remarks>
-		/// Full page rendering is performed in the following order:
-		/// <list type="bullet">
-		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
-		/// <item><see cref="DrawFillForms"/></item>
-		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
-		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// </list>
-		/// </remarks>
-		protected virtual void DrawPageBorder(DrawingContext drawingContext, Rect BBox)
+        /// <summary>
+        /// Draws page's border
+        /// </summary>
+        /// <param name="drawingContext">The drawing context</param>
+        /// <param name="BBox">Page's bounding box</param>
+        /// <remarks>
+        /// Please see the remarks section of <see cref="OnRender"/> for getting more info about page rendering order.
+        /// </remarks>
+        protected virtual void DrawPageBorder(DrawingContext drawingContext, Rect BBox)
 		{
 			//Draw page border
 			Helpers.DrawRectangle(drawingContext, _pageBorderColorPen, BBox);
 		}
 
-		/// <summary>
-		/// Left for backward compatibility. Actually the fillforms selection is drawn in <see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/> method.
-		/// </summary>
-		/// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
-		/// <param name="selectedRectangles">A collection of rectangles to be drawn</param>
-		/// <remarks>
-		/// Full page rendering is performed in the following order:
-		/// <list type="bullet">
-		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
-		/// <item><see cref="DrawFillForms"/></item>
-		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
-		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// </list>
-		/// </remarks>
-		protected virtual void DrawFillFormsSelection(DrawingContext drawingContext, List<Rect> selectedRectangles)
+        /// <summary>
+        /// Left for backward compatibility. Actually the fillforms selection is drawn in <see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/> method.
+        /// </summary>
+        /// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
+        /// <param name="selectedRectangles">A collection of rectangles to be drawn</param>
+        /// <remarks>
+        /// Please see the remarks section of <see cref="OnRender"/> for getting more info about page rendering order.
+        /// </remarks>
+        protected virtual void DrawFillFormsSelection(DrawingContext drawingContext, List<Rect> selectedRectangles)
 		{
 
 		}
 
-		/// <summary>
-		/// Left for backward compatibility. Actually the text highlight is drawn in <see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/> method.
-		/// </summary>
-		/// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
-		/// <param name="entries">Highlights info.</param>
-		/// <param name="pageIndex">Page index to be drawn</param>
-		/// <remarks>
-		/// Full page rendering is performed in the following order:
-		/// <list type="bullet">
-		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
-		/// <item><see cref="DrawFillForms"/></item>
-		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
-		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// </list>
-		/// </remarks>
-		protected virtual void DrawTextHighlight(DrawingContext drawingContext, List<HighlightInfo> entries, int pageIndex)
+        /// <summary>
+        /// Left for backward compatibility. Actually the text highlight is drawn in <see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/> method.
+        /// </summary>
+        /// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
+        /// <param name="entries">Highlights info.</param>
+        /// <param name="pageIndex">Page index to be drawn</param>
+        /// <remarks>
+        /// Please see the remarks section of <see cref="OnRender"/> for getting more info about page rendering order.
+        /// </remarks>
+        protected virtual void DrawTextHighlight(DrawingContext drawingContext, List<HighlightInfo> entries, int pageIndex)
 		{
 
 		}
 
-		/// <summary>
-		/// Left for backward compatibility. Actually the text selection is drawn in <see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/> method.
-		/// </summary>
-		/// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
-		/// <param name="selInfo">Selection info</param>
-		/// <param name="pageIndex">Page index to be drawn</param>
-		/// <remarks>
-		/// Full page rendering is performed in the following order:
-		/// <list type="bullet">
-		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
-		/// <item><see cref="DrawFillForms"/></item>
-		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
-		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// </list>
-		/// </remarks>
-		protected virtual void DrawTextSelection(DrawingContext drawingContext, SelectInfo selInfo, int pageIndex)
+        /// <summary>
+        /// Left for backward compatibility. Actually the text selection is drawn in <see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/> method.
+        /// </summary>
+        /// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
+        /// <param name="selInfo">Selection info</param>
+        /// <param name="pageIndex">Page index to be drawn</param>
+        /// <remarks>
+        /// Please see the remarks section of <see cref="OnRender"/> for getting more info about page rendering order.
+        /// </remarks>
+        protected virtual void DrawTextSelection(DrawingContext drawingContext, SelectInfo selInfo, int pageIndex)
 		{
 
 		}
 
-		/// <summary>
-		/// Draws current page highlight
-		/// </summary>
-		/// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
-		/// <param name="pageIndex">Page index to be drawn</param>
-		/// <param name="actualRect">Page bounds in control coordinates</param>
-		/// <remarks>
-		/// Full page rendering is performed in the following order:
-		/// <list type="bullet">
-		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
-		/// <item><see cref="DrawFillForms"/></item>
-		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
-		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// </list>
-		/// </remarks>
-		protected virtual void DrawCurrentPageHighlight(DrawingContext drawingContext, int pageIndex, Rect actualRect)
+        /// <summary>
+        /// Draws current page highlight
+        /// </summary>
+        /// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
+        /// <param name="pageIndex">Page index to be drawn</param>
+        /// <param name="actualRect">Page bounds in control coordinates</param>
+        /// <remarks>
+        /// Please see the remarks section of <see cref="OnRender"/> for getting more info about page rendering order.
+        /// </remarks>
+        protected virtual void DrawCurrentPageHighlight(DrawingContext drawingContext, int pageIndex, Rect actualRect)
 		{
 			if (ShowCurrentPageHighlight && pageIndex == Document.Pages.CurrentIndex)
 			{
@@ -2645,34 +2469,19 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 		}
 
-		/// <summary>
-		/// Combine two buffers (rendered pages and forms) and draw them to graphics
-		/// </summary>
-		/// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
-		/// <param name="canvasBitmap">Bitmap with rendered pages</param>
-		/// <param name="formsBitmap">Bitmap with rendered forms</param>
-		/// <param name="canvasWidth">Width of buffer</param>
-		/// <param name="canvasHeight">Height of buffer</param>
-		/// <remarks>
-		/// This method should combine bitmaps with alpha blending and draw result to graphics surface.
-		/// Full page rendering is performed in the following order:
-		/// <list type="bullet">
-		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
-		/// <item><see cref="DrawFillForms"/></item>
-		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
-		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// </list>
-		/// </remarks>
-		protected virtual void DrawRenderedPagesToDevice(DrawingContext drawingContext, PdfBitmap canvasBitmap, PdfBitmap formsBitmap, int canvasWidth, int canvasHeight)
+        /// <summary>
+        /// Combine two buffers (rendered pages and forms) and draw them to graphics
+        /// </summary>
+        /// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
+        /// <param name="canvasBitmap">Bitmap with rendered pages</param>
+        /// <param name="formsBitmap">Bitmap with rendered forms</param>
+        /// <param name="canvasWidth">Width of buffer</param>
+        /// <param name="canvasHeight">Height of buffer</param>
+        /// <remarks>
+        /// This method should combine bitmaps with alpha blending and draw result to graphics surface.
+        /// Please see the remarks section of <see cref="OnRender"/> for getting more info about page rendering order.
+        /// </remarks>
+        protected virtual void DrawRenderedPagesToDevice(DrawingContext drawingContext, PdfBitmap canvasBitmap, PdfBitmap formsBitmap, int canvasWidth, int canvasHeight)
 		{
 			//Convert PdfBitmap into Wpf WriteableBitmap
 			int canvasStride = _prPages.CanvasBitmap.Stride;
@@ -2689,30 +2498,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
             Helpers.DrawImageUnscaled(drawingContext, _canvasWpfBitmap, _pixelOffset.X, _pixelOffset.Y);
 		}
 
-		/// <summary>
-		/// Draws pages separatoes.
-		/// </summary>
-		/// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
-		/// <param name="separator">List of pair of points what represents separator</param>
-		/// <remarks>
-		/// Full page rendering is performed in the following order:
-		/// <list type="bullet">
-		/// <item><see cref="DrawPageBackColor"/></item>
-		/// <item><see cref="DrawPage"/> or <see cref="DrawLoadingIcon"/> if page is still drawing</item>
-		/// <item><see cref="DrawFillForms"/></item>
-		/// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(PdfBitmap, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(PdfBitmap, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawRenderedPagesToDevice"/></item>
-		/// <item><see cref="DrawPageSeparators"/></item>
-		/// <item><see cref="DrawPageBorder"/></item>
-		/// <item><see cref="DrawFillFormsSelection(DrawingContext, List{Rect})"/></item>
-		/// <item><see cref="DrawTextHighlight(DrawingContext, List{HighlightInfo}, int)"/></item>
-		/// <item><see cref="DrawTextSelection(DrawingContext, SelectInfo, int)"/></item>
-		/// <item><see cref="DrawCurrentPageHighlight"/></item>
-		/// </list>
-		/// </remarks>
-		protected virtual void DrawPageSeparators(DrawingContext drawingContext, ref List<Point> separator)
+        /// <summary>
+        /// Draws pages separatoes.
+        /// </summary>
+        /// <param name="drawingContext">The drawing instructions for a specific element. This context is provided to the layout system.</param>
+        /// <param name="separator">List of pair of points what represents separator</param>
+        /// <remarks>
+        /// Please see the remarks section of <see cref="OnRender"/> for getting more info about page rendering order.
+        /// </remarks>
+        protected virtual void DrawPageSeparators(DrawingContext drawingContext, ref List<Point> separator)
 		{
 			if (separator == null || !ShowPageSeparator)
 				return;
