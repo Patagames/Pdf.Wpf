@@ -629,7 +629,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                                 newValue.Pages.ProgressiveRender += viewer.Pages_ProgressiveRender;
                                 viewer.SetCurrentPage(viewer._onstartPageIndex);
                                 if (newValue.Pages.Count > 0)
-                                    viewer.ScrollToPage(viewer._onstartPageIndex);
+                                    if (viewer._onstartPageIndex != 0)
+                                        viewer.ScrollToPage(viewer._onstartPageIndex);
+                                    else
+                                        viewer._autoScrollPosition = new Point(0, 0);
                             }
                             viewer.OnAfterDocumentChanged(EventArgs.Empty);
                         }
