@@ -1,11 +1,25 @@
 ﻿using Patagames.Pdf.Enums;
-using System.Windows;
-using System.Windows.Media.Imaging;
+using System;
 
 namespace Patagames.Pdf.Net.Controls.Wpf
 {
-	internal class PRItem
-	{
+	internal class PRItem : IDisposable
+    {
 		public ProgressiveRenderingStatuses status;
-	}
+        public PdfBitmap Bitmap;
+
+        public PRItem(ProgressiveRenderingStatuses status, Helpers.Int32Size canvasSize)
+        {
+            this.status = status;
+            if (canvasSize.Width > 0 && canvasSize.Height > 0)
+                Bitmap = new PdfBitmap(canvasSize.Width, canvasSize.Height, true);
+        }
+
+        public void Dispose()
+        {
+            if (Bitmap != null)
+                Bitmap.Dispose();
+            Bitmap = null;
+        }
+    }
 }

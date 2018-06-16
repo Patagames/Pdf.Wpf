@@ -95,19 +95,24 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				this[page].status = ProgressiveRenderingStatuses.RenderDone + 4;
 			else if (!useProgressiveRender)
 				this[page].status = ProgressiveRenderingStatuses.RenderDone + 3;
-			return ProcessExisting(page, pageRect, pageRotate, renderFlags);
-		}
 
-		/// <summary>
-		/// Process existing pages
-		/// </summary>
-		/// <returns>Null if page still painting, PdfBitmap object if page successfully rendered.</returns>
-		private bool ProcessExisting(PdfPage page, Int32Rect pageRect, PageRotate pageRotate, RenderFlags renderFlags)
+            PdfBitmap bitmap = this[page].Bitmap;
+            bool ret = ProcessExisting(bitmap ?? CanvasBitmap, page, pageRect, pageRotate, renderFlags);
+            if (bitmap != null)
+                Pdfium.FPDFBitmap_TransferBitmap(CanvasBitmap.Handle, pageRect.X, pageRect.Y, pageRect.Width, pageRect.Height, bitmap.Handle, pageRect.X, pageRect.Y);
+            return ret;
+        }
+
+        /// <summary>
+        /// Process existing pages
+        /// </summary>
+        /// <returns>Null if page still painting, PdfBitmap object if page successfully rendered.</returns>
+        private bool ProcessExisting(PdfBitmap bitmap, PdfPage page, Int32Rect pageRect, PageRotate pageRotate, RenderFlags renderFlags)
 		{
 			switch (this[page].status)
 			{
 				case ProgressiveRenderingStatuses.RenderReader:
-					this[page].status = page.StartProgressiveRender(CanvasBitmap, pageRect.X, pageRect.Y, pageRect.Width, pageRect.Height, pageRotate, renderFlags, null);
+					this[page].status = page.StartProgressiveRender(bitmap, pageRect.X, pageRect.Y, pageRect.Width, pageRect.Height, pageRotate, renderFlags, null);
 					if (this[page].status == ProgressiveRenderingStatuses.RenderDone)
 						return true;
 					return false; //Start rendering. Return nothing.
@@ -122,12 +127,12 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 				case ProgressiveRenderingStatuses.RenderDone + 3:
 					this[page].status = ProgressiveRenderingStatuses.RenderDone + 2;
-					page.RenderEx(CanvasBitmap, pageRect.X, pageRect.Y, pageRect.Width, pageRect.Height, pageRotate, renderFlags);
+					page.RenderEx(bitmap, pageRect.X, pageRect.Y, pageRect.Width, pageRect.Height, pageRotate, renderFlags);
 					return true; //Rendering in non progressive mode
 
 				case ProgressiveRenderingStatuses.RenderDone + 4:
 					this[page].status = ProgressiveRenderingStatuses.RenderDone + 2;
-					DrawThumbnail(page, pageRect, pageRotate, renderFlags);
+					DrawThumbnail(bitmap, page, pageRect, pageRotate, renderFlags);
 					return true; //Rendering thumbnails
 
 				case ProgressiveRenderingStatuses.RenderTobeContinued:
@@ -136,15 +141,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 				case ProgressiveRenderingStatuses.RenderFailed:
 				default:
-					CanvasBitmap.FillRectEx(pageRect.X, pageRect.Y, pageRect.Width, pageRect.Height, Helpers.ToArgb(Colors.Red));
-					CanvasBitmap.FillRectEx(pageRect.X + 5, pageRect.Y + 5, pageRect.Width - 10, pageRect.Height - 10, Helpers.ToArgb(Colors.White));
+                    bitmap.FillRectEx(pageRect.X, pageRect.Y, pageRect.Width, pageRect.Height, Helpers.ToArgb(Colors.Red));
+                    bitmap.FillRectEx(pageRect.X + 5, pageRect.Y + 5, pageRect.Width - 10, pageRect.Height - 10, Helpers.ToArgb(Colors.White));
 					page.CancelProgressiveRender();
 					this[page].status = ProgressiveRenderingStatuses.RenderDone + 2;
-					return true; //Error occur. Stop rendering. return image with error
+					return true; //An error has occurred. Stop rendering. return special image
 			}
 		}
 
-		private void DrawThumbnail(PdfPage page, Int32Rect pageRect, PageRotate pageRotate, RenderFlags renderFlags)
+		private void DrawThumbnail(PdfBitmap bitmap, PdfPage page, Int32Rect pageRect, PageRotate pageRotate, RenderFlags renderFlags)
 		{
 			int pw = (int)page.Width;
 			int ph = (int)page.Height;
@@ -154,7 +159,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			{
 				page.RenderEx(bmp, 0, 0, w, h, pageRotate, renderFlags);
 
-				using (var g = System.Drawing.Graphics.FromImage(CanvasBitmap.Image))
+				using (var g = System.Drawing.Graphics.FromImage(bitmap.Image))
 				{
 					g.DrawImage(bmp.Image, pageRect.X, pageRect.Y, pageRect.Width, pageRect.Height);
 				}
@@ -167,10 +172,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </summary>
 		private void ProcessNew(PdfPage page)
 		{
-			var item = new PRItem()
-			{
-				status = ProgressiveRenderingStatuses.RenderReader,
-			};
+            var item = new PRItem(ProgressiveRenderingStatuses.RenderReader, page.IsTransparency ? CanvasSize : new Helpers.Int32Size(0, 0));
 			this.Add(page, item);
 			page.Disposed += Page_Disposed;
 		}
@@ -194,6 +196,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			if (this[page].status == ProgressiveRenderingStatuses.RenderTobeContinued)
 				page.CancelProgressiveRender();
+            this[page].Dispose();
 			page.Disposed -= Page_Disposed;
 		}
 
