@@ -18,7 +18,7 @@ using System.ComponentModel;
 namespace Patagames.Pdf.Net.Controls.Wpf
 {
     /// <summary>
-    /// Represents a pdf view control for displaying an Pdf document.
+    /// Represents a pdf view control for displaying a Pdf document.
     /// </summary>	
     [LicenseProvider]
     public partial class PdfViewer : Control, IScrollInfo
