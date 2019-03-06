@@ -14,6 +14,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.ComponentModel;
+using Patagames.Pdf.Net.Annotations;
 
 namespace Patagames.Pdf.Net.Controls.Wpf
 {
@@ -1494,7 +1495,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			var page = Document.Pages[pageIndex];
 			var ar = CalcActualRect(pageIndex);
 			double pX, pY;
-			page.DeviceToPageEx((int)ar.X, (int)ar.Y, (int)ar.Width, (int)ar.Height, PageRotation(page), (int)pt.X, (int)pt.Y, out pX, out pY);
+			page.DeviceToPage((int)ar.X, (int)ar.Y, (int)ar.Width, (int)ar.Height, PageRotation(page), (int)pt.X, (int)pt.Y, out pX, out pY);
 			return new Point(pX, pY);
 		}
 
@@ -1513,7 +1514,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			var page = Document.Pages[pageIndex];
 			var ar = CalcActualRect(pageIndex);
 			int dX, dY;
-			page.PageToDeviceEx((int)ar.X, (int)ar.Y, (int)ar.Width, (int)ar.Height, PageRotation(page), (float)pt.X, (float)pt.Y, out dX, out dY);
+			page.PageToDevice((int)ar.X, (int)ar.Y, (int)ar.Width, (int)ar.Height, PageRotation(page), (float)pt.X, (float)pt.Y, out dX, out dY);
 			return new Point(dX, dY);
 		}
 
@@ -1886,6 +1887,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
         /// Full page rendering is performed in the following order:
         /// <list type="bullet">
         /// <item><see cref="DrawPageBackColor"/></item>
+        /// <item><see cref="RegenerateAnnots"/></item>
         /// <item><see cref="DrawPage"/></item>
         /// <item><see cref="DrawFillForms"/></item>
         /// <item><see cref="DrawFillFormsSelection(PdfBitmap, List{Rect})"/></item>
@@ -1944,13 +1946,13 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 						actualRect = CalcActualRect(i);
 					}
 
-					//Load page if need
-					var pageHandle = Document.Pages[i].Handle;
-					if (_prPages.CanvasBitmap == null)
-						_prPages.InitCanvas(new Helpers.Int32Size(cw, ch)); //The canvas was dropped due to the execution of scripts on the page while it loading.
+                    //Recreate annotations which have no AP stream.
+                    RegenerateAnnots(i);
+                    if (_prPages.CanvasBitmap == null)
+						_prPages.InitCanvas(new Helpers.Int32Size(cw, ch)); //The canvas was dropped due to the execution of scripts on the page while it loading inside RegenerateAnnots.
 
-					//Draw page
-					bool isPageDrawn = DrawPage(_prPages.CanvasBitmap, Document.Pages[i], actualRect);
+                    //Draw page
+                    bool isPageDrawn = DrawPage(_prPages.CanvasBitmap, Document.Pages[i], actualRect);
 					allPagesAreRendered &= isPageDrawn;
                     stillLoading[i] = !isPageDrawn;
 
@@ -2023,11 +2025,36 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 		}
 
-		/// <summary>
-		/// Raises the MouseDoubleClick event.
-		/// </summary>
-		/// <param name="e">A System.Windows.Forms.MouseButtonEventArgs that contains the event data.</param>
-		protected override void OnMouseDoubleClick(MouseButtonEventArgs e)
+        /// <summary>
+        /// Create an appearance stream for annotations which do not have this one.
+        /// </summary>
+        /// <param name="pageIndex">Page index with which annotations are associated.</param>
+        protected virtual void RegenerateAnnots(int pageIndex)
+        {
+            var pageHandle = Document.Pages[pageIndex].Handle;
+            if (!Pdfium.IsFullAPI)
+                return;
+            var noapp = Pdfium.FPDFTOOLS_GetAnnotsWithoutAP(pageHandle);
+            if (noapp != null && noapp.Length > 0)
+            {
+                var annots = Document.Pages[pageIndex].Annots;
+                int cnt = annots.Count;
+                foreach (int idx in noapp)
+                {
+                    if (idx < 0 || idx >= cnt)
+                        continue;
+                    var annot = annots[idx];
+                    if (annot is PdfMarkupAnnotation)
+                        (annot as PdfMarkupAnnotation).RegenerateAppearances();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Raises the MouseDoubleClick event.
+        /// </summary>
+        /// <param name="e">A System.Windows.Forms.MouseButtonEventArgs that contains the event data.</param>
+        protected override void OnMouseDoubleClick(MouseButtonEventArgs e)
 		{
 			if (e.LeftButton == MouseButtonState.Pressed)
 			{
@@ -2911,7 +2938,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					continue;
 
 				double px, py;
-				Document.Pages[i].DeviceToPageEx(
+				Document.Pages[i].DeviceToPage(
 					(int)rect.X, (int)rect.Y,
 					(int)rect.Width, (int)rect.Height,
 					PageRotation(Document.Pages[i]), (int)x, (int)y,
@@ -2931,7 +2958,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			rect.Y += _autoScrollPosition.Y;
 
 			int dx, dy;
-			Document.Pages[pageIndex].PageToDeviceEx(
+			Document.Pages[pageIndex].PageToDevice(
 					(int)rect.X, (int)rect.Y,
 					(int)rect.Width, (int)rect.Height,
 					PageRotation(Document.Pages[pageIndex]),
