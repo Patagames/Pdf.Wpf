@@ -616,7 +616,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                             viewer._onstartPageIndex = 0;
                             viewer._renderRects = null;
                             viewer._loadedByViewer = false;
-                            Pdfium.FPDF_ShowSplash(true);
                             viewer.ReleaseFillForms(viewer._externalDocCapture);
                             //_document = value;
                             viewer.UpdateDocLayout();
