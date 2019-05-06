@@ -2135,31 +2135,27 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 				if (idx >= 0)
 				{
-					int ei = Document.Pages[idx].Text.GetCharIndexAtPos((float)page_point.X, (float)page_point.Y, 10.0f, 10.0f);
-
-					if (!Document.Pages[idx].OnMouseMove(0, (float)page_point.X, (float)page_point.Y))
-					{
-						if (ei >= 0 && (MouseMode == MouseModes.SelectTextTool || MouseMode == MouseModes.Default))
-							Mouse.OverrideCursor = Cursors.IBeam;
-						else
-							Mouse.OverrideCursor = null;
-					}
-
-					switch (MouseMode)
+                    var cursor = CursorTypes.Arrow;
+                    switch (MouseMode)
 					{
 						case MouseModes.Default:
-							ProcessMouseMoveForDefaultTool(page_point, idx);
-							ProcessMouseMoveForSelectTextTool(idx, ei);
-							break;
+                            cursor = ProcessMouseMoveForDefaultTool(page_point, idx);
+                            var cursor2 = ProcessMouseMoveForSelectTextTool(page_point, idx);
+                            if(cursor2!= CursorTypes.Arrow && _mousePressed && !_mousePressedInLink)
+                                cursor = cursor2;
+                            else
+                                cursor = cursor == CursorTypes.Arrow ? cursor2 : cursor;
+                            break;
 						case MouseModes.SelectTextTool:
-							ProcessMouseMoveForSelectTextTool(idx, ei);
+                            cursor = ProcessMouseMoveForSelectTextTool(page_point, idx);
 							break;
 						case MouseModes.PanTool:
-							ProcessMouseMoveForPanTool(loc);
+							cursor = ProcessMouseMoveForPanTool(loc);
 							break;
 					}
-				}
-			}
+                    InternalSetCursor(cursor);
+                }
+            }
 
 			base.OnMouseMove(e);
 		}
@@ -3441,6 +3437,19 @@ namespace Patagames.Pdf.Net.Controls.Wpf
             }
             return idx;
         }
+
+        private static void InternalSetCursor(CursorTypes cursor)
+        {
+            switch (cursor)
+            {
+                case CursorTypes.Hand: Mouse.OverrideCursor = Cursors.Hand; break;
+                case CursorTypes.HBeam: Mouse.OverrideCursor = Cursors.IBeam; break;
+                case CursorTypes.VBeam: Mouse.OverrideCursor = Cursors.IBeam; break;
+                case CursorTypes.NESW: Mouse.OverrideCursor = Cursors.SizeNESW; break;
+                case CursorTypes.NWSE: Mouse.OverrideCursor = Cursors.SizeNWSE; break;
+                default: Mouse.OverrideCursor = null; break;
+            }
+        }
         #endregion
 
         #region FillForms event raises
@@ -3534,21 +3543,13 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// </summary>
 		/// <param name="e">An <see cref="SetCursorEventArgs"/> that contains the event data.</param>
 		protected virtual void OnFormsSetCursor(SetCursorEventArgs e)
-		{
-			switch (e.Cursor)
-			{
-				case CursorTypes.Hand: Mouse.OverrideCursor = Cursors.Hand; break;
-				case CursorTypes.HBeam: Mouse.OverrideCursor = Cursors.IBeam; break;
-				case CursorTypes.VBeam: Mouse.OverrideCursor = Cursors.IBeam; break;
-				case CursorTypes.NESW: Mouse.OverrideCursor = Cursors.SizeNESW; break;
-				case CursorTypes.NWSE: Mouse.OverrideCursor = Cursors.SizeNWSE; break;
-				default: Mouse.OverrideCursor = null; break;
-			}
-		}
-		#endregion
+        {
+            InternalSetCursor(e.Cursor);
+        }
+        #endregion
 
-		#region FillForms event handlers
-		private void FormsInvalidate(object sender, InvalidatePageEventArgs e)
+        #region FillForms event handlers
+        private void FormsInvalidate(object sender, InvalidatePageEventArgs e)
 		{
 			OnFormsInvalidate(e);
 		}
@@ -3948,9 +3949,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                 GenerateSelectedTextProperty();
         }
 
-		private void ProcessMouseMoveForSelectTextTool(int page_index, int character_index)
+		private CursorTypes ProcessMouseMoveForSelectTextTool(Point page_point, int page_index)
 		{
-			if (_mousePressed)
+            int character_index = Document.Pages[page_index].Text.GetCharIndexAtPos((float)page_point.X, (float)page_point.Y, 10.0f, 10.0f);
+            if (_mousePressed)
 			{
 				if (character_index >= 0)
 				{
@@ -3961,11 +3963,17 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 						EndIndex = character_index,
 						StartIndex = _selectInfo.StartIndex
 					};
-					_isShowSelection = true;
+                    _mousePressedInLink = false;
+                    _isShowSelection = true;
 				}
 				InvalidateVisual();
 			}
-		}
+
+            if (!Document.Pages[page_index].OnMouseMove(0, (float)page_point.X, (float)page_point.Y))
+                if (character_index >= 0)
+                    return CursorTypes.VBeam;
+            return CursorTypes.Arrow;
+        }
 		#endregion
 
 		#region Default tool
@@ -3979,14 +3987,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				_mousePressedInLink = false;
 		}
 
-		private void ProcessMouseMoveForDefaultTool(Point page_point, int page_index)
+		private CursorTypes ProcessMouseMoveForDefaultTool(Point page_point, int page_index)
 		{
 			var pdfLink = Document.Pages[page_index].Links.GetLinkAtPoint((float)page_point.X, (float)page_point.Y);
 			var webLink = Document.Pages[page_index].Text.WebLinks.GetWebLinkAtPoint((float)page_point.X, (float)page_point.Y);
-			if (webLink != null || pdfLink != null)
-				Mouse.OverrideCursor = Cursors.Hand;
-
-		}
+            if (webLink != null || pdfLink != null)
+                return CursorTypes.Hand;
+            return CursorTypes.Arrow;
+        }
 
 		private void PriocessMouseUpForDefaultTool(Point page_point, int page_index)
 		{
@@ -4008,14 +4016,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			CaptureMouse();
 		}
 
-		private void ProcessMouseMoveForPanTool(Point mouse_point)
+		private CursorTypes ProcessMouseMoveForPanTool(Point mouse_point)
 		{
 			if (!_mousePressed)
-				return;
+				return CursorTypes.Arrow;
 			var yOffs = mouse_point.Y - _panToolInitialMousePosition.Y;
 			var xOffs = mouse_point.X - _panToolInitialMousePosition.X;
 			SetVerticalOffset(-_panToolInitialScrollPosition.Y - yOffs);
 			SetHorizontalOffset(-_panToolInitialScrollPosition.X - xOffs);
+            return CursorTypes.Arrow;
 		}
 
 		private void ProcessMouseUpPanTool(Point mouse_point)

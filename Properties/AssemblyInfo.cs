@@ -11,8 +11,8 @@ using System.Windows;
 //      Revision -.Net framework
 
 //---------------------------- WPF Viewer -------------------------------------------------
-[assembly: AssemblyInformationalVersion("4.5.2704")]  //Should be equal to the same property of Patagames.Pdf assembly
-[assembly: AssemblyVersion("4.1.1." +
+[assembly: AssemblyInformationalVersion("4.6.2704")]  //Should be equal to the same property of Patagames.Pdf assembly
+[assembly: AssemblyVersion("4.2.1." +
 #if DOTNET20
 "20"
 #elif DOTNET30
@@ -35,6 +35,12 @@ using System.Windows;
 "462"
 #elif DOTNET47
 "47"
+#elif DOTNET471
+"471"
+#elif DOTNET472
+"472"
+#elif DOTNET48
+"48"
 #else
 "0"
 #endif
@@ -65,6 +71,12 @@ using System.Windows;
 [assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls (.net 4.6.2)")]
 #elif DOTNET47
 [assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls (.net 4.7)")]
+#elif DOTNET471
+[assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls (.net 4.7.1)")]
+#elif DOTNET472
+[assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls (.net 4.7.2)")]
+#elif DOTNET48
+[assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls (.net 4.8)")]
 #else
 [assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls")]
 #endif
@@ -72,7 +84,7 @@ using System.Windows;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Patagames Software")]
 [assembly: AssemblyProduct("Patagames Pdf.Net SDK")]
-[assembly: AssemblyCopyright("Copyright ©  2018")]
+[assembly: AssemblyCopyright("Copyright ©  2019")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
