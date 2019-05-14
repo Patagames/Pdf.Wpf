@@ -161,7 +161,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                 // Transform the whole-pixel back to this element.
                 pixelOffset = ps.CompositionTarget.TransformFromDevice.Transform(pixelOffset);
                 pixelOffset = ApplyVisualTransform(pixelOffset, rootVisual, true);
-                pixelOffset = rootVisual.TransformToDescendant(UI).Transform(pixelOffset);
+                var ttd = rootVisual.TransformToDescendant(UI);
+                if(ttd!= null)
+                    pixelOffset = ttd.Transform(pixelOffset);
             }
 
             return pixelOffset;
