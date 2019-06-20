@@ -2094,7 +2094,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					int idx = DeviceToPage(loc.X, loc.Y, out page_point);
 					if (idx >= 0)
 					{
-						Document.Pages[idx].OnLButtonDown(0, (float)page_point.X, (float)page_point.Y);
+                        if (MouseMode != MouseModes.PanTool && MouseMode != MouseModes.None)
+                            Document.Pages[idx].OnLButtonDown(0, (float)page_point.X, (float)page_point.Y);
 						SetCurrentPage(idx);
 
 						_mousePressed = true;
@@ -2183,7 +2184,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				int idx = DeviceToPage(loc.X, loc.Y, out page_point);
 				if (idx >= 0)
 				{
-					Document.Pages[idx].OnLButtonUp(0, (float)page_point.X, (float)page_point.Y);
+                    if (MouseMode != MouseModes.PanTool && MouseMode != MouseModes.None)
+                        Document.Pages[idx].OnLButtonUp(0, (float)page_point.X, (float)page_point.Y);
 
 					switch (MouseMode)
 					{
@@ -2536,6 +2538,26 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			for (int sep = 0; sep < separator.Count; sep += 2)
 				drawingContext.DrawLine(_pageSeparatorColorPen, separator[sep], separator[sep + 1]);
 		}
+        #endregion
+
+        #region Other protected methods
+        /// <summary>
+        /// Sets the cursor that is displayed when the mouse pointer is over the control.
+        /// </summary>
+        /// <param name="cursor">A <see cref="CursorTypes"/> that represents the cursor to display when the mouse pointer is over the control.</param>
+        /// <remarks>You can override this method to change the logic of cursor setting in the control.</remarks>
+        protected virtual void InternalSetCursor(CursorTypes cursor)
+        {
+            switch (cursor)
+            {
+                case CursorTypes.Hand: Mouse.OverrideCursor = Cursors.Hand; break;
+                case CursorTypes.HBeam: Mouse.OverrideCursor = Cursors.IBeam; break;
+                case CursorTypes.VBeam: Mouse.OverrideCursor = Cursors.IBeam; break;
+                case CursorTypes.NESW: Mouse.OverrideCursor = Cursors.SizeNESW; break;
+                case CursorTypes.NWSE: Mouse.OverrideCursor = Cursors.SizeNWSE; break;
+                default: Mouse.OverrideCursor = null; break;
+            }
+        }
         #endregion
 
         #region Private methods
@@ -3437,19 +3459,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
             }
             return idx;
         }
-
-        private static void InternalSetCursor(CursorTypes cursor)
-        {
-            switch (cursor)
-            {
-                case CursorTypes.Hand: Mouse.OverrideCursor = Cursors.Hand; break;
-                case CursorTypes.HBeam: Mouse.OverrideCursor = Cursors.IBeam; break;
-                case CursorTypes.VBeam: Mouse.OverrideCursor = Cursors.IBeam; break;
-                case CursorTypes.NESW: Mouse.OverrideCursor = Cursors.SizeNESW; break;
-                case CursorTypes.NWSE: Mouse.OverrideCursor = Cursors.SizeNWSE; break;
-                default: Mouse.OverrideCursor = null; break;
-            }
-        }
         #endregion
 
         #region FillForms event raises
@@ -3972,6 +3981,16 @@ namespace Patagames.Pdf.Net.Controls.Wpf
             if (!Document.Pages[page_index].OnMouseMove(0, (float)page_point.X, (float)page_point.Y))
                 if (character_index >= 0)
                     return CursorTypes.VBeam;
+            var formFieldType = Document.Pages[page_index].GetFormFieldAtPoint((float)page_point.X, (float)page_point.Y);
+            switch (formFieldType)
+            {
+                case FormFieldTypes.FPDF_FORMFIELD_CHECKBOX:
+                case FormFieldTypes.FPDF_FORMFIELD_COMBOBOX:
+                case FormFieldTypes.FPDF_FORMFIELD_PUSHBUTTON:
+                case FormFieldTypes.FPDF_FORMFIELD_RADIOBUTTON:
+                case FormFieldTypes.FPDF_FORMFIELD_LISTBOX: return CursorTypes.Hand;
+                case FormFieldTypes.FPDF_FORMFIELD_TEXTFIELD: return CursorTypes.VBeam;
+            }
             return CursorTypes.Arrow;
         }
 		#endregion
