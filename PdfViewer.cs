@@ -2459,11 +2459,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
         protected virtual void DrawLoadingIcon(DrawingContext drawingContext, PdfPage page, Rect actualRect)
 		{
 			Typeface tf = new Typeface("Tahoma");
-			var ft = new FormattedText(
-				LoadingIconText,
-				CultureInfo.CurrentCulture, 
-				FlowDirection.LeftToRight, 
-				tf, 14, Brushes.Black);
+            var ft = new FormattedText(
+                LoadingIconText,
+                CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                tf, 14, Brushes.Black
+#if DOTNET462 || DOTNET47 || DOTNET471 || DOTNET472 || DOTNET48
+                , Helpers.Dpi / 96
+#endif
+                );
 			ft.MaxTextWidth = actualRect.Width;
 			ft.MaxTextHeight = actualRect.Height;
 			ft.TextAlignment = TextAlignment.Left;
@@ -2595,9 +2599,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			for (int sep = 0; sep < separator.Count; sep += 2)
 				drawingContext.DrawLine(_pageSeparatorColorPen, separator[sep], separator[sep + 1]);
 		}
-        #endregion
+#endregion
 
-        #region Other protected methods
+#region Other protected methods
         /// <summary>
         /// Sets the cursor that is displayed when the mouse pointer is over the control.
         /// </summary>
@@ -2615,9 +2619,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                 default: Mouse.OverrideCursor = null; break;
             }
         }
-        #endregion
+#endregion
 
-        #region Private methods
+#region Private methods
         private bool CanDisposePage(int i)
         {
             if (_highlightedText.ContainsKey(i))
@@ -3576,9 +3580,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
             return ret;
         }
-        #endregion
+#endregion
 
-        #region FillForms event raises
+#region FillForms event raises
         /// <summary>
         /// Called by the engine when it is required to redraw the page
         /// </summary>
@@ -3672,9 +3676,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
         {
             InternalSetCursor(e.Cursor);
         }
-        #endregion
+#endregion
 
-        #region FillForms event handlers
+#region FillForms event handlers
         private void FormsInvalidate(object sender, InvalidatePageEventArgs e)
 		{
 			OnFormsInvalidate(e);
@@ -3709,9 +3713,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			OnFormsSetCursor(e);
 		}
-		#endregion
+#endregion
 
-		#region Miscellaneous event handlers
+#region Miscellaneous event handlers
 		private void Pages_ProgressiveRender(object sender, ProgressiveRenderEventArgs e)
 		{
 			e.NeedPause = _prPages.IsNeedPause(sender as PdfPage);
@@ -3738,9 +3742,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			UpdateDocLayout();
 
 		}
-		#endregion
+#endregion
 
-		#region Helpers
+#region Helpers
 		private Rect ClientRect
 		{
 			get
@@ -3749,11 +3753,11 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				return new Rect(0, 0, ViewportWidth, ViewportHeight);
 			}
 		}
-		#endregion
+#endregion
 
-		#region IScrollInfo implementation
+#region IScrollInfo implementation
 
-		#region properties
+#region properties
 		/// <summary>
 		/// Gets or sets a value that indicates whether scrolling on the vertical axis is possible.
 		/// </summary>
@@ -3846,9 +3850,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 		}
 
-		#endregion
+#endregion
 
-		#region methods
+#region methods
 		/// <summary>
 		/// Sets the amount of vertical offset.
 		/// </summary>
@@ -4035,11 +4039,11 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		}
 
 
-		#endregion
+#endregion
 
-		#endregion
+#endregion
 
-		#region Select tool
+#region Select tool
 		private void ProcessMouseDoubleClickForSelectTextTool(Point page_point, int page_index)
 		{
 			var page = Document.Pages[page_index];
@@ -4110,9 +4114,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
             }
             return CursorTypes.Arrow;
         }
-		#endregion
+#endregion
 
-		#region Default tool
+#region Default tool
 		private void ProcessMouseDownDefaultTool(Point page_point, int page_index)
 		{
 			var pdfLink = Document.Pages[page_index].Links.GetLinkAtPoint((float)page_point.X, (float)page_point.Y);
@@ -4142,9 +4146,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					ProcessLinkClicked(pdfLink, webLink);
 			}
 		}
-		#endregion
+#endregion
 
-		#region Pan tool
+#region Pan tool
 		private void ProcessMouseDownPanTool(Point mouse_point)
 		{
 			_panToolInitialScrollPosition = _autoScrollPosition;
@@ -4167,6 +4171,6 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			ReleaseMouseCapture();
 		}
-		#endregion
+#endregion
 	}
 }
