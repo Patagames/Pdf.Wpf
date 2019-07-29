@@ -4102,7 +4102,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
             if (!Document.Pages[page_index].OnMouseMove(0, (float)page_point.X, (float)page_point.Y))
                 if (character_index >= 0)
                     return CursorTypes.VBeam;
-            var formFieldType = Document.Pages[page_index].GetFormFieldAtPoint((float)page_point.X, (float)page_point.Y);
+            var formFieldType = Document.FormFill != null ? Document.Pages[page_index].GetFormFieldAtPoint((float)page_point.X, (float)page_point.Y) : FormFieldTypes.FPDF_FORMFIELD_NOFIELDS;
             switch (formFieldType)
             {
                 case FormFieldTypes.FPDF_FORMFIELD_CHECKBOX:
