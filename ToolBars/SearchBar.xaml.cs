@@ -2,6 +2,7 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 
@@ -167,8 +168,21 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			_onsearchTimer.Stop();
 			_onsearchTimer.Start();
 		}
+        private void TbSearch_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (Keyboard.IsKeyDown(Key.Enter) && (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)))
+            {
+                picUp_Click(null, null);
+                e.Handled = true;
+            }
+            else if (Keyboard.IsKeyDown(Key.Enter))
+            {
+                picDown_Click(null, null);
+                e.Handled = true;
+            }
+        }
 
-		private void _onsearchTimer_Tick(object sender, EventArgs e)
+        private void _onsearchTimer_Tick(object sender, EventArgs e)
 		{
 			_onsearchTimer.Stop();
 			OnSearch();
@@ -201,6 +215,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			if (NeedSearch != null)
 				NeedSearch(this, EventArgs.Empty);
 		}
-		#endregion
-	}
+        #endregion
+
+
+    }
 }

@@ -32,7 +32,7 @@
             </Button>
             <Border BorderBrush="Black" Background="White" BorderThickness="1" Padding="5,0,5,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBox Background="White" BorderThickness="0" Name="tbSearch" TextChanged="tbSearch_TextChanged" Width="120"></TextBox>
+                    <TextBox Background="White" BorderThickness="0" Name="tbSearch" TextChanged="tbSearch_TextChanged" Width="120" PreviewKeyDown="TbSearch_PreviewKeyDown" ></TextBox>
                     <TextBlock Name="lblInfo">1 of 1</TextBlock>
                 </StackPanel>
             </Border>

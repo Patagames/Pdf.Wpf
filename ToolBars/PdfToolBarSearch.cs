@@ -14,24 +14,35 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 	public class PdfToolBarSearch : PdfToolBar
 	{
 		#region Private fields
-		PdfSearch _search = null;
 		List<PdfSearch.FoundText> _foundText = new List<PdfSearch.FoundText>();
 		List<PdfSearch.FoundText> _forHighlight = new List<PdfSearch.FoundText>();
-		object _syncFoundText = new object();
-		DispatcherTimer _foundTextTimer;
-		delegate void DelegateType1();
-		#endregion
+        DispatcherTimer _searchTimer;
+        int _searchPageIndex;
+        string _searchText;
+        FindFlags _searchFlags;
+        int _prevRecord;
+        #endregion
 
-		#region Public Properties
-		/// <summary>
-		/// Gets or sets the color of the found text.
-		/// </summary>
-		public Color HighlightColor { get; set; }
+        #region Public Properties
+        /// <summary>
+        /// Gets or sets delta values for each edge of the rectangles of the highlighted text.
+        /// </summary>
+        public FS_RECTF InflateHighlight { get; set; }
 
-		/// <summary>
-		/// Gets or sets search text
-		/// </summary>
-		public string SearchText
+        /// <summary>
+        /// Gets or sets the color of the found text.
+        /// </summary>
+        public Color HighlightColor { get; set; }
+
+        /// <summary>
+        /// Gets or sets the color of the found text.
+        /// </summary>
+        public Color ActiveRecordColor { get; set; }
+
+        /// <summary>
+        /// Gets or sets search text
+        /// </summary>
+        public string SearchText
 		{
 			get
 			{
@@ -93,18 +104,20 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 		/// </summary>
 		public PdfToolBarSearch()
 		{
-			_foundTextTimer = new DispatcherTimer();
-			_foundTextTimer.Interval = TimeSpan.FromMilliseconds(50);
-			_foundTextTimer.Tick += _foundTextTimer_Tick;
-			HighlightColor = Color.FromArgb(90, 255, 255, 0);
-		}
-		#endregion
+            _searchTimer = new DispatcherTimer();
+            _searchTimer.Interval = TimeSpan.FromMilliseconds(1);
+            _searchTimer.Tick += _searchTimer_Tick;
+            HighlightColor = Color.FromArgb(50, 255, 255, 0);
+            ActiveRecordColor = Color.FromArgb(255, 255, 255, 0);
+            InflateHighlight = new FS_RECTF(2.0, 3.5, 2.0, 2.0);
+        }
+        #endregion
 
-		#region Overriding
-		/// <summary>
-		/// Create all buttons and add its into toolbar. Override this method to create custom buttons
-		/// </summary>
-		protected override void InitializeButtons()
+        #region Overriding
+        /// <summary>
+        /// Create all buttons and add its into toolbar. Override this method to create custom buttons
+        /// </summary>
+        protected override void InitializeButtons()
 		{
 			var btn = new SearchBar();
 			btn.Name = "btnSearchBar";
@@ -143,9 +156,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			if (newValue != null)
 				SubscribePdfViewEvents(newValue);
 
-			if (oldValue != null && oldValue.Document != null && _search == null)
+			if (oldValue != null && oldValue.Document != null)
 				PdfViewer_DocumentClosed(this, EventArgs.Empty);
-			if (newValue != null && newValue.Document != null && _search == null)
+			if (newValue != null && newValue.Document != null)
 				PdfViewer_DocumentLoaded(this, EventArgs.Empty);
 
 
@@ -154,54 +167,16 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 		#endregion
 
 		#region Event handlers for PdfViewer
-		private void PdfViewer_DocumentClosing(object sender, EventArguments.DocumentClosingEventArgs e)
-		{
-			if (_search != null)
-				StopSearch();
-		}
-
 		private void PdfViewer_DocumentClosed(object sender, EventArgs e)
 		{
 			UpdateButtons();
-			if (_search != null)
-			{
-				_search.FoundTextAdded -= Search_FoundTextAdded;
-				_search.SearchCompleted -= Search_SearchCompleted;
-				StopSearch();
-			}
+			StopSearch();
 		}
 
 		private void PdfViewer_DocumentLoaded(object sender, EventArgs e)
 		{
 			UpdateButtons();
-			_search = new PdfSearch(PdfViewer.Document);
-			_search.FoundTextAdded += Search_FoundTextAdded;
-			_search.SearchCompleted += Search_SearchCompleted;
 		}
-
-		private void Search_SearchCompleted(object sender, System.ComponentModel.RunWorkerCompletedEventArgs e)
-		{
-			_foundTextTimer.Stop();
-			_foundTextTimer_Tick(_foundTextTimer, EventArgs.Empty);
-		}
-
-		int _sleepCnt = 0;
-		private void Search_FoundTextAdded(object sender, EventArguments.FoundTextAddedEventArgs e)
-		{
-			lock (_syncFoundText)
-			{
-				_foundText.Add(e.FoundText);
-				_forHighlight.Add(e.FoundText);
-			}
-			//Give a chance to GUI thread to process the found records.
-			_sleepCnt++;
-			if (_sleepCnt >= 100)
-			{
-				_sleepCnt = 0;
-				System.Threading.Thread.Sleep(10);
-			}
-		}
-
 		#endregion
 
 		#region Event handlers for buttons
@@ -226,36 +201,33 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 		protected virtual void OnCurrentRecordChanged(int currentRecord, int totalRecords)
 		{
 			ScrollToRecord(currentRecord);
-		}
+            HighlightRecord(_prevRecord, currentRecord);
+            _prevRecord = currentRecord;
+        }
 
-		/// <summary>
-		/// Called when the search routine should be launched
-		/// </summary>
-		/// <param name="searchFlags">Search flags</param>
-		/// <param name="searchText">Text for search</param>
-		protected virtual  void OnNeedSearch(FindFlags searchFlags, string searchText)
+        /// <summary>
+        /// Called when the search routine should be launched
+        /// </summary>
+        /// <param name="searchFlags">Search flags</param>
+        /// <param name="searchText">Text for search</param>
+        protected virtual  void OnNeedSearch(FindFlags searchFlags, string searchText)
 		{
 			StartSearch(searchFlags, searchText);
 		}
-
 		#endregion
 
 		#region Private methods
 		private void UnsubscribePdfViewEvents(PdfViewer oldValue)
 		{
-			oldValue.BeforeDocumentChanged -= PdfViewer_DocumentClosing;
 			oldValue.AfterDocumentChanged -= PdfViewer_DocumentLoaded;
 			oldValue.DocumentLoaded -= PdfViewer_DocumentLoaded;
-			oldValue.DocumentClosing -= PdfViewer_DocumentClosing;
 			oldValue.DocumentClosed -= PdfViewer_DocumentClosed;
 		}
 
 		private void SubscribePdfViewEvents(PdfViewer newValue)
 		{
-			newValue.BeforeDocumentChanged += PdfViewer_DocumentClosing;
 			newValue.AfterDocumentChanged += PdfViewer_DocumentLoaded;
 			newValue.DocumentLoaded += PdfViewer_DocumentLoaded;
-			newValue.DocumentClosing += PdfViewer_DocumentClosing;
 			newValue.DocumentClosed += PdfViewer_DocumentClosed;
 		}
 
@@ -264,61 +236,126 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 			StopSearch();
 			if (searchText == "")
 				return;
-			_search.Start(searchText, searchFlags);
-			_foundTextTimer.Start();
-		}
+            _prevRecord = -1;
+            _searchText = searchText;
+            _searchFlags = searchFlags;
+            _searchPageIndex = 0;
+            _searchTimer.Start();
+        }
 
-		private void StopSearch()
-		{
-			_foundTextTimer.Stop();
-			_search.End();
-			while (_search.IsBusy)
-				DoEvents();
-			_foundText.Clear();
-			_forHighlight.Clear();
-			PdfViewer.RemoveHighlightFromText();
-		}
+        private void StopSearch()
+        {
+            _searchPageIndex = -1;
+            _searchTimer.Stop();
+            _foundText.Clear();
+            _forHighlight.Clear();
+            PdfViewer.RemoveHighlightFromText();
+
+            var tssb = this.Items[0] as SearchBar;
+            if (tssb == null)
+                return;
+            tssb.CurrentRecord = 0;
+        }
 
 		private void ScrollToRecord(int currentRecord)
 		{
-			PdfSearch.FoundText ft;
-			lock (_syncFoundText)
-			{
-				if (currentRecord < 1 || currentRecord > _foundText.Count)
-					return;
-				ft = _foundText[currentRecord - 1];
-			}
+    		if (currentRecord < 1 || currentRecord > _foundText.Count)
+				return;
+			var ft = _foundText[currentRecord - 1];
 
-			PdfViewer.CurrentIndex = ft.PageIndex;
-			PdfViewer.ScrollToPage(ft.PageIndex);
-			PdfViewer.ScrollToChar(ft.CharIndex);
-		}
+            PdfViewer.CurrentIndex = ft.PageIndex;
 
-		private void _foundTextTimer_Tick(object sender, EventArgs e)
-		{
+            var rects = PdfViewer.GetHighlightedRects(ft.PageIndex, new HighlightInfo() { CharIndex = ft.CharIndex, CharsCount = ft.CharsCount, Inflate = InflateHighlight });
+            if (rects.Count > 0)
+            {
+                Rect cl = new Rect(0, 0, PdfViewer.ViewportWidth, PdfViewer.ViewportHeight);
+                Rect cl2 = new Rect(rects[0].X, rects[0].Y, rects[0].Width, rects[0].Height);
+                if (rects.Count > 0 && !cl.Contains(cl2))
+                {
+                    var p = PdfViewer.ClientToPage(ft.PageIndex, new Point(rects[0].X, rects[0].Y));
+                    PdfViewer.ScrollToPoint(ft.PageIndex, p);
+                }
+            }
+        }
+
+        private void HighlightRecord(int prevRecord, int currentRecord)
+        {
+            if (prevRecord >= 1 && prevRecord <= _foundText.Count)
+            {
+                var ft = _foundText[prevRecord - 1];
+                PdfViewer.HighlightText(ft.PageIndex, ft.CharIndex, ft.CharsCount, HighlightColor, InflateHighlight);
+            }
+            if (currentRecord >= 1 && currentRecord <= _foundText.Count)
+            {
+                var ft = _foundText[currentRecord - 1];
+                PdfViewer.HighlightText(ft.PageIndex, ft.CharIndex, ft.CharsCount, ActiveRecordColor, InflateHighlight);
+            }
+        }
+
+        private void UpdateResults()
+        {
 			var tssb = this.Items[0] as SearchBar;
 			if (tssb == null)
 				return;
-			lock (_syncFoundText)
-			{
-				tssb.TotalRecords = _foundText.Count;
-				foreach (var ft in _forHighlight)
-					PdfViewer.HighlightText(ft.PageIndex, ft.CharIndex, ft.CharsCount, HighlightColor);
-				_forHighlight.Clear();
-			}
+
+            tssb.TotalRecords = _foundText.Count;
+            foreach (var ft in _forHighlight)
+            {
+                var item = new HighlightInfo() { CharIndex = ft.CharIndex, CharsCount = ft.CharsCount, Color = HighlightColor, Inflate = InflateHighlight};
+                if (!PdfViewer.HighlightedTextInfo.ContainsKey(ft.PageIndex))
+                    PdfViewer.HighlightedTextInfo.Add(ft.PageIndex, new List<HighlightInfo>());
+                 PdfViewer.HighlightedTextInfo[ft.PageIndex].Add(item);
+            }
+            _forHighlight.Clear();
 		}
 
-		private static void DoEvents()
-		{
-			DelegateType1 method = DoEventsInternal;
-			Application.Current.Dispatcher.Invoke(DispatcherPriority.Background, method);
-			//Application.Current.Dispatcher.Invoke(DispatcherPriority.Background, new Action(delegate { }));
-		}
+        private void _searchTimer_Tick(object sender, EventArgs e)
+        {
+            if (_searchPageIndex < 0)
+                return;
+            var doc = PdfViewer.Document;
+            int cnt = doc.Pages.Count;
+            if (_searchPageIndex >= cnt)
+            {
+                _searchTimer.Stop();
+                return;
+            }
 
-		private static void DoEventsInternal()
-		{
+            IntPtr page = Pdfium.FPDF_LoadPage(doc.Handle, _searchPageIndex);
+            if (page == IntPtr.Zero)
+            {
+                _searchTimer.Stop();
+                return;
+            }
 
-		}
-		#endregion
-	}
+            IntPtr text = Pdfium.FPDFText_LoadPage(page);
+            if (text == IntPtr.Zero)
+            {
+                _searchTimer.Stop();
+                return;
+            }
+
+            var sh = Pdfium.FPDFText_FindStart(text, _searchText, _searchFlags, 0);
+            if (sh == IntPtr.Zero)
+            {
+                _searchTimer.Stop();
+                return;
+            }
+
+            while (Pdfium.FPDFText_FindNext(sh))
+            {
+                int idx = Pdfium.FPDFText_GetSchResultIndex(sh);
+                int len = Pdfium.FPDFText_GetSchCount(sh);
+                var ft = new PdfSearch.FoundText() { CharIndex = idx, CharsCount = len, PageIndex = _searchPageIndex };
+                _foundText.Add(ft);
+                _forHighlight.Add(ft);
+            }
+            Pdfium.FPDFText_FindClose(sh);
+            Pdfium.FPDFText_ClosePage(text);
+            Pdfium.FPDF_ClosePage(page);
+            UpdateResults();
+            _searchPageIndex++;
+        }
+        #endregion
+    }
 }

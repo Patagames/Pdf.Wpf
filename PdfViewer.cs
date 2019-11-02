@@ -560,13 +560,13 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			if (FormsBlendModeChanged != null)
 				FormsBlendModeChanged(this, e);
 		}
-		#endregion
+        #endregion
 
-		#region Dependency properties
-		/// <summary>
-		/// DependencyProperty as the backing store for <see cref="FormsBlendMode"/>
-		/// </summary>
-		public static readonly DependencyProperty FormsBlendModeProperty =
+        #region Dependency properties
+        /// <summary>
+        /// DependencyProperty as the backing store for <see cref="FormsBlendMode"/>
+        /// </summary>
+        public static readonly DependencyProperty FormsBlendModeProperty =
 			DependencyProperty.Register("FormsBlendMode", typeof(BlendTypes), typeof(PdfViewer),
 				new FrameworkPropertyMetadata(BlendTypes.FXDIB_BLEND_MULTIPLY,
 					FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.Journal,
@@ -1530,14 +1530,27 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			HighlightText(pageIndex, highlightInfo.CharIndex, highlightInfo.CharsCount, highlightInfo.Color);
 		}
 
-		/// <summary>
-		/// Highlight text on the page
-		/// </summary>
-		/// <param name="pageIndex">Zero-based index of the page</param>
-		/// <param name="charIndex">Zero-based char index on the page.</param>
-		/// <param name="charsCount">The number of highlighted characters on the page or -1 for highlight text from charIndex to end of the page.</param>
-		/// <param name="color">Highlight color</param>
-		public void HighlightText(int pageIndex, int charIndex, int charsCount, Color color)
+        /// <summary>
+        /// Highlight text on the page
+        /// </summary>
+        /// <param name="pageIndex">Zero-based index of the page</param>
+        /// <param name="charIndex">Zero-based char index on the page.</param>
+        /// <param name="charsCount">The number of highlighted characters on the page or -1 for highlight text from charIndex to end of the page.</param>
+        /// <param name="color">Highlight color</param>
+        public void HighlightText(int pageIndex, int charIndex, int charsCount, Color color)
+        {
+            HighlightText(pageIndex, charIndex, charsCount, color, new FS_RECTF());
+        }
+
+        /// <summary>
+        /// Highlight text on the page
+        /// </summary>
+        /// <param name="pageIndex">Zero-based index of the page</param>
+        /// <param name="charIndex">Zero-based char index on the page.</param>
+        /// <param name="charsCount">The number of highlighted characters on the page or -1 for highlight text from charIndex to end of the page.</param>
+        /// <param name="color">Highlight color</param>
+        /// <param name="inflate">A delta values for each edge of the rectangles of the highlighted text.</param>
+        public void HighlightText(int pageIndex, int charIndex, int charsCount, Color color, FS_RECTF inflate)
 		{
 			//normalize all user input
 			if (pageIndex < 0)
@@ -1545,8 +1558,13 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			if (pageIndex > Document.Pages.Count - 1)
 				pageIndex = Document.Pages.Count - 1;
 
-			int charsCnt = Document.Pages[pageIndex].Text.CountChars;
-			if (charIndex < 0)
+            IntPtr ph = Pdfium.FPDF_LoadPage(Document.Handle, pageIndex);
+            IntPtr th = Pdfium.FPDFText_LoadPage(ph);
+            int charsCnt = Pdfium.FPDFText_CountChars(th);
+            Pdfium.FPDFText_ClosePage(th);
+            Pdfium.FPDF_ClosePage(ph);
+
+            if (charIndex < 0)
 				charIndex = 0;
 			if (charIndex > charsCnt - 1)
 				charIndex = charsCnt - 1;
@@ -1557,7 +1575,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			if (charsCount <= 0)
 				return;
 
-			var newEntry = new HighlightInfo() { CharIndex = charIndex, CharsCount = charsCount, Color = color };
+			var newEntry = new HighlightInfo() { CharIndex = charIndex, CharsCount = charsCount, Color = color, Inflate = inflate };
 
 			if (!_highlightedText.ContainsKey(pageIndex))
 			{
@@ -1614,11 +1632,21 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			HighlightText(pageIndex, charIndex, charsCount, Helpers.ColorEmpty);
 		}
 
-		/// <summary>
-		/// Highlight selected text on the page by specified color
-		/// </summary>
-		/// <param name="color">Highlight color</param>
-		public void HilightSelectedText(Color color)
+        /// <summary>
+        /// Highlight selected text on the page by specified color
+        /// </summary>
+        /// <param name="color">Highlight color</param>
+        [Obsolete("This method is obsolete. Please use HighlightSelectedText instead", false)]
+        public void HilightSelectedText(Color color)
+        {
+            HighlightSelectedText(color);
+        }
+
+        /// <summary>
+        /// Highlight selected text on the page by specified color
+        /// </summary>
+        /// <param name="color">Highlight color</param>
+        public void HighlightSelectedText(Color color)
 		{
 			var selInfo = SelectInfo;
 			if (selInfo.StartPage < 0 || selInfo.StartIndex < 0)
@@ -1632,12 +1660,21 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 		}
 
-		/// <summary>
-		/// Removes highlight from selected text
-		/// </summary>
-		public void RemoveHilightFromSelectedText()
+        /// <summary>
+        /// Removes highlight from selected text
+        /// </summary>
+        [Obsolete("This method is obsolete. Please use RemoveHighlightFromSelectedText instead", false)]
+        public void RemoveHilightFromSelectedText()
+        {
+            RemoveHighlightFromSelectedText();
+        }
+
+        /// <summary>
+        /// Removes highlight from selected text
+        /// </summary>
+        public void RemoveHighlightFromSelectedText()
 		{
-			HilightSelectedText(Helpers.ColorEmpty);
+			HighlightSelectedText(Helpers.ColorEmpty);
 		}
 
 		/// <summary>
@@ -1745,9 +1782,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf
             int len2 = cnt - s2;
 
             var ti = GetRectsFromTextInfoWithoutSpaceCharacter(pageIndex, s, len);
-            var tiBefore = _smoothSelection == SmoothSelection.ByLine && s > 0 ? GetRectsFromTextInfoWithoutSpaceCharacter(pageIndex, 0, s) : null;
-            var tiAfter = _smoothSelection == SmoothSelection.ByLine && s2 < cnt && len2 > 0 ? GetRectsFromTextInfoWithoutSpaceCharacter(pageIndex, s2, len2) : null;
-            return NormalizeRects(ti, pageIndex, tiBefore, tiAfter);
+            if (selInfo.Inflate == default(FS_RECTF))
+            {
+                var tiBefore = _smoothSelection == SmoothSelection.ByLine && s > 0 ? GetRectsFromTextInfoWithoutSpaceCharacter(pageIndex, 0, s) : null;
+                var tiAfter = _smoothSelection == SmoothSelection.ByLine && s2 < cnt && len2 > 0 ? GetRectsFromTextInfoWithoutSpaceCharacter(pageIndex, s2, len2) : null;
+                return NormalizeRects(ti, pageIndex, tiBefore, tiAfter, selInfo.Inflate);
+            }
+            else
+                return NormalizeRects(ti, pageIndex, null, null, selInfo.Inflate);
         }
         #endregion
 
@@ -3095,6 +3137,11 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
         private List<Int32Rect> NormalizeRects(IEnumerable<FS_RECTF> rects, int pageIndex, IEnumerable<FS_RECTF> rectsBefore, IEnumerable<FS_RECTF> rectsAfter)
         {
+            return NormalizeRects(rects, pageIndex, rectsBefore, rectsAfter, new FS_RECTF());
+        }
+
+        private List<Int32Rect> NormalizeRects(IEnumerable<FS_RECTF> rects, int pageIndex, IEnumerable<FS_RECTF> rectsBefore, IEnumerable<FS_RECTF> rectsAfter, FS_RECTF inflate)
+        {
             List<Int32Rect> rows = new List<Int32Rect>();
 
             if (_smoothSelection == SmoothSelection.None)
@@ -3112,6 +3159,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
             foreach (var rc in rects)
             {
+                rc.Inflate(inflate);
+
                 float h = (highestTop - lowestBottom);
                 //check if new row is required
                 if (float.IsNaN(lowestBottom))
