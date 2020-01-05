@@ -2976,7 +2976,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                 try
                 {
                     _preventStackOverflowBugWorkaround = true;
-                    Zoom = (float)(w / ret.Width);
+                    Zoom = (float)(ret.Width / w);
                 }
                 finally
                 {
