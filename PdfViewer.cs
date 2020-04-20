@@ -1684,7 +1684,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			_prPages.ReleaseCanvas(); //something changed. Release canvas
 			_viewport = new Size(ActualWidth, ActualHeight);
-			if (Document == null || Document.Pages.Count <= 0)
+			if (Document == null || Document.Pages.Count <= 0 || ActualWidth<0.00001 || ActualHeight < 0.00001)
 			{
 				_renderRects = null;
 				InvalidateVisual();
@@ -2689,11 +2689,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		private void RestoreScrollPoint()
 		{
 			if (_scrollPointSaved)
-			{
-				int idx = CurrentIndex;
 				ScrollToPoint(CurrentIndex, _scrollPoint);
-				CurrentIndex = idx;
-			}
 		}
 
 		private void GenerateSelectedTextProperty()
