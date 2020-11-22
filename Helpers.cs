@@ -340,5 +340,20 @@ namespace Patagames.Pdf.Net.Controls.Wpf
         }
         #endregion
 
+        #region Code Security
+        public static void SecurityAssert()
+        {
+#if !DOTNET50
+            new System.Drawing.Printing.PrintingPermission(System.Drawing.Printing.PrintingPermissionLevel.DefaultPrinting).Assert();
+#endif
+        }
+
+        internal static void SecurityRevert()
+        {
+#if !DOTNET50
+            System.Security.CodeAccessPermission.RevertAssert();
+#endif
+        }
+        #endregion
     }
 }

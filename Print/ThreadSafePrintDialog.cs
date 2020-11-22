@@ -58,7 +58,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		/// <returns></returns>
 		private PrintQueue DefaultPrintQueue()
 		{
-			new PrintingPermission(PrintingPermissionLevel.DefaultPrinting).Assert();
+			Helpers.SecurityAssert();
 			PrintQueue queue = null;
 
 			try
@@ -71,7 +71,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 			finally
 			{
-				CodeAccessPermission.RevertAssert();
+				Helpers.SecurityRevert();
 			}
 
 			return queue;
@@ -79,7 +79,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 		private PrintTicket DefaultPrintTicket()
 		{
-			new PrintingPermission(PrintingPermissionLevel.DefaultPrinting).Assert();
+			Helpers.SecurityAssert();
 			PrintTicket ticket = null;
 
 			try
@@ -97,7 +97,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 			finally
 			{
-				CodeAccessPermission.RevertAssert();
+				Helpers.SecurityRevert();
 			}
 
 			if (ticket == null)
@@ -182,7 +182,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 
 			XpsDocumentWriter writer = null;
-			new PrintingPermission(PrintingPermissionLevel.DefaultPrinting).Assert();
+			Helpers.SecurityAssert();
 
 			try
 			{
@@ -194,7 +194,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 			finally
 			{
-				CodeAccessPermission.RevertAssert();
+				Helpers.SecurityRevert();
 			}
 
 			writer.Write(paginator);
@@ -655,7 +655,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				PrintQueueIndexedProperty[] pArray = new PrintQueueIndexedProperty[2];
 				pArray[1] = PrintQueueIndexedProperty.QueueAttributes;
 
-				new PrintingPermission(PrintingPermissionLevel.DefaultPrinting).Assert();
+				Helpers.SecurityAssert();
 
 				try
 				{
@@ -673,7 +673,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				}
 				finally
 				{
-					CodeAccessPermission.RevertAssert();
+					Helpers.SecurityRevert();
 				}
 
 				return null;
@@ -704,7 +704,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 						NativeMethods.GlobalUnlock(dModeHnd);
 				}
 
-				new PrintingPermission(PrintingPermissionLevel.DefaultPrinting).Assert();
+				Helpers.SecurityAssert();
 
 				try
 				{
@@ -716,7 +716,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				}
 				finally
 				{
-					CodeAccessPermission.RevertAssert();
+					Helpers.SecurityRevert();
 				}
 			}
 
@@ -728,7 +728,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			/// <returns></returns>
 			IntPtr InitializeDevMode(string printerName, PrintTicket printTicket)
 			{
-				new PrintingPermission(PrintingPermissionLevel.DefaultPrinting).Assert();
+				Helpers.SecurityAssert();
 				byte[] dMode = null;
 
 				try
@@ -740,7 +740,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				}
 				finally
 				{
-					CodeAccessPermission.RevertAssert();
+					Helpers.SecurityRevert();
 				}
 
 				IntPtr ptrDevMode = Marshal.AllocHGlobal(dMode.Length);

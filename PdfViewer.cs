@@ -2508,15 +2508,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
         protected virtual void DrawLoadingIcon(DrawingContext drawingContext, PdfPage page, Rect actualRect)
 		{
 			Typeface tf = new Typeface("Tahoma");
-            var ft = new FormattedText(
+			var ft = new FormattedText(
                 LoadingIconText,
                 CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight,
                 tf, 14, Brushes.Black
-#if DOTNET462 || DOTNET47 || DOTNET471 || DOTNET472 || DOTNET48
+#if DOTNET462 || DOTNET47 || DOTNET471 || DOTNET472 || DOTNET48 || DOTNET50
                 , Helpers.Dpi / 96
 #endif
-                );
+				);
 			ft.MaxTextWidth = actualRect.Width;
 			ft.MaxTextHeight = actualRect.Height;
 			ft.TextAlignment = TextAlignment.Left;
@@ -3709,12 +3709,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		{
 			switch (e.Value)
 			{
+#pragma warning disable CA1416
 				case BeepTypes.Default: System.Media.SystemSounds.Beep.Play(); break;
 				case BeepTypes.Error: System.Media.SystemSounds.Asterisk.Play(); break;
 				case BeepTypes.Question: System.Media.SystemSounds.Question.Play(); break;
 				case BeepTypes.Warning: System.Media.SystemSounds.Exclamation.Play(); break;
 				case BeepTypes.Status: System.Media.SystemSounds.Beep.Play(); break;
 				default: System.Media.SystemSounds.Beep.Play(); break;
+#pragma warning restore CA1416
 			}
 
 		}

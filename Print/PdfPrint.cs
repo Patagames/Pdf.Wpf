@@ -148,7 +148,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			}
 
 			var thread = new System.Threading.Thread(ThreadProc);
+#pragma warning disable CA1416
 			thread.SetApartmentState(ApartmentState.STA);
+#pragma warning restore CA1416
 			IsBusy = true;
 			IsEnd = false;
 			thread.Start(hwnd);

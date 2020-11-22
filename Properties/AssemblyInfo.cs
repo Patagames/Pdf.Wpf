@@ -11,8 +11,8 @@ using System.Windows;
 //      Revision -.Net framework
 
 //---------------------------- WPF Viewer -------------------------------------------------
-[assembly: AssemblyInformationalVersion("4.37.2704")]  //Should be equal to the same property of Patagames.Pdf assembly
-[assembly: AssemblyVersion("4.10.13." +
+[assembly: AssemblyInformationalVersion("4.38.2704")]  //Should be equal to the same property of Patagames.Pdf assembly
+[assembly: AssemblyVersion("4.11.13." +
 #if DOTNET20
 "20"
 #elif DOTNET30
@@ -41,6 +41,8 @@ using System.Windows;
 "472"
 #elif DOTNET48
 "48"
+#elif DOTNET50
+"50"
 #else
 "0"
 #endif
@@ -77,6 +79,8 @@ using System.Windows;
 [assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls (.net 4.7.2)")]
 #elif DOTNET48
 [assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls (.net 4.8)")]
+#elif DOTNET50
+[assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls (.net 5.0)")]
 #else
 [assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls")]
 #endif
@@ -84,7 +88,7 @@ using System.Windows;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Patagames Software")]
 [assembly: AssemblyProduct("Patagames Pdf.Net SDK")]
-[assembly: AssemblyCopyright("Copyright ©  2019")]
+[assembly: AssemblyCopyright("Copyright ©  2020")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
