@@ -17,6 +17,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
         #region DPIhandling
         /// <summary>
+        /// The Pixels Per Density Independent Pixel value, which is the equivalent of the scale factor. 
+        /// For example, if the DPI of a screen is 120 (or 1.25 because 120/96 = 1.25) , 
+        /// 1.25 pixel per density independent pixel is drawn. 
+        /// DIP is the unit of measurement used by WPF to be independent of device resolution and DPIs.
+        /// </summary>
+        public static double PixelSize { get { return (double)Dpi / 96; } }
+
+        /// <summary>
         /// Gets current logical DPI
         /// </summary>
         /// <remarks>
@@ -33,7 +41,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
         /// <remarks>1 DIP = 1/96 DPI</remarks>
         public static int UnitsToPixels(double units)
         {
-            return (int)(units / 96 * Dpi);
+            return (int)(units * PixelSize);
         }
 
         /// <summary>
@@ -44,7 +52,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
         /// <remarks>1 DIP = 1/96 DPI</remarks>
         public static double PixelsToUnits(int pixels)
         {
-            return (double)pixels * 96.0 / Dpi;
+            return (double)pixels / PixelSize;
         }
 
         #endregion DPIhandling

@@ -1502,7 +1502,13 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			var page = Document.Pages[pageIndex];
 			var ar = CalcActualRect(pageIndex);
 			double pX, pY;
-			page.DeviceToPage((int)ar.X, (int)ar.Y, (int)ar.Width, (int)ar.Height, PageRotation(page), (int)pt.X, (int)pt.Y, out pX, out pY);
+			page.DeviceToPage(
+				Helpers.UnitsToPixels(ar.X),
+				Helpers.UnitsToPixels(ar.Y),
+				Helpers.UnitsToPixels(ar.Width),
+				Helpers.UnitsToPixels(ar.Height), 
+				PageRotation(page), (int)(pt.X), (int)(pt.Y), out pX, out pY);
+			
 			return new Point(pX, pY);
 		}
 
@@ -1521,7 +1527,12 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			var page = Document.Pages[pageIndex];
 			var ar = CalcActualRect(pageIndex);
 			int dX, dY;
-			page.PageToDevice((int)ar.X, (int)ar.Y, (int)ar.Width, (int)ar.Height, PageRotation(page), (float)pt.X, (float)pt.Y, out dX, out dY);
+			page.PageToDevice(
+				Helpers.UnitsToPixels(ar.X),
+				Helpers.UnitsToPixels(ar.Y), 
+				Helpers.UnitsToPixels(ar.Width),
+				Helpers.UnitsToPixels(ar.Height), 
+				PageRotation(page), (float)pt.X, (float)pt.Y, out dX, out dY);
 			return new Point(dX, dY);
 		}
 
@@ -2520,7 +2531,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                 FlowDirection.LeftToRight,
                 tf, 14, Brushes.Black
 #if DOTNET462 || DOTNET47 || DOTNET471 || DOTNET472 || DOTNET48 || DOTNET50
-                , Helpers.Dpi / 96
+                , Helpers.PixelSize
 #endif
 				);
 			ft.MaxTextWidth = actualRect.Width;
@@ -3096,11 +3107,11 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			double w, h;
 			Pdfium.FPDF_GetPageSizeByIndex(Document.Handle, index, out w, out h);
 
-            //converts PDF points which is 1/72 inch to WPF DIPs (Device Independed Pixels) which is 96 units per inch.
-            w = w / 72.0 * 96;
-            h = h / 72.0 * 96;
+			//converts PDF points which is 1/72 inch to WPF DIPs (Device Independed Pixels) which is 96 units per inch.
+			w = w * _actualSizeFactor();
+			h = h * _actualSizeFactor();
 
-            double nw = clientSize.Width;
+			double nw = clientSize.Width;
 			double nh = h * nw / w;
 
             Size ret;
@@ -3132,6 +3143,15 @@ namespace Patagames.Pdf.Net.Controls.Wpf
             }
             return ret;
         }
+
+        internal double _actualSizeFactor()
+        {
+			double dpi = Helpers.Dpi;
+			return dpi/ 72.0 / (dpi / 96) / Helpers.PixelSize;
+			//1. dpi / 72 - to convert PDF points to pixels
+			//2. dpi / 96 - scale factor
+			//3. PixelSize - to convert pixels to units.
+		}
 
 		private Size CalcAppropriateSize(double w, double h, double fitWidth, double fitHeight)
 		{
