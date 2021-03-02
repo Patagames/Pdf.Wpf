@@ -1507,7 +1507,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				Helpers.UnitsToPixels(ar.Y),
 				Helpers.UnitsToPixels(ar.Width),
 				Helpers.UnitsToPixels(ar.Height), 
-				PageRotation(page), (int)(pt.X), (int)(pt.Y), out pX, out pY);
+				PageRotation(page), Helpers.UnitsToPixels(pt.X), Helpers.UnitsToPixels(pt.Y), out pX, out pY);
 			
 			return new Point(pX, pY);
 		}
@@ -1533,7 +1533,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 				Helpers.UnitsToPixels(ar.Width),
 				Helpers.UnitsToPixels(ar.Height), 
 				PageRotation(page), (float)pt.X, (float)pt.Y, out dX, out dY);
-			return new Point(dX, dY);
+			return new Point(Helpers.PixelsToUnits(dX), Helpers.PixelsToUnits(dY));
 		}
 
 
