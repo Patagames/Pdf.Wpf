@@ -351,14 +351,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf
         #region Code Security
         public static void SecurityAssert()
         {
-#if !DOTNET50
+#if !DOTNET50 && !DOTNET60
             new System.Drawing.Printing.PrintingPermission(System.Drawing.Printing.PrintingPermissionLevel.DefaultPrinting).Assert();
 #endif
         }
 
         internal static void SecurityRevert()
         {
-#if !DOTNET50
+#if !DOTNET50 && !DOTNET60
             System.Security.CodeAccessPermission.RevertAssert();
 #endif
         }
