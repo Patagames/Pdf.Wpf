@@ -2487,8 +2487,13 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			foreach (var e in entries)
 			{
                 var rects = GetHighlightedRects(pageIndex, e);
-                foreach (var r in rects)
-                    bitmap.FillRectEx(r.X, r.Y, r.Width, r.Height, Helpers.ToArgb(e.Color), FormsBlendMode);
+				foreach (var fullRect in rects)
+				{
+					var r = new Rect(fullRect.X, fullRect.Y, fullRect.Width, fullRect.Height);
+					r.Intersect(ClientRect);
+					if (r.Width > 0.0001f && r.Height > 0.0001f)
+						bitmap.FillRectEx((int)r.X, (int)r.Y, (int)r.Width, (int)r.Height, Helpers.ToArgb(e.Color), FormsBlendMode);
+				}
 			}
 		}
 
@@ -2508,8 +2513,13 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			if (pageIndex >= selInfo.StartPage && pageIndex <= selInfo.EndPage)
 			{
                 var rects = GetSelectedRects(pageIndex, selInfo);
-                foreach (var r in rects)
-                    bitmap.FillRectEx(r.X, r.Y, r.Width, r.Height, Helpers.ToArgb(TextSelectColor), FormsBlendMode);
+				foreach (var fullRect in rects)
+				{
+					var r = new Rect(fullRect.X, fullRect.Y, fullRect.Width, fullRect.Height);
+					r.Intersect(ClientRect);
+					if (r.Width > 0.0001f && r.Height > 0.0001f)
+						bitmap.FillRectEx((int)r.X, (int)r.Y, (int)r.Width, (int)r.Height, Helpers.ToArgb(TextSelectColor), FormsBlendMode);
+				}
 			}
 		}
 
