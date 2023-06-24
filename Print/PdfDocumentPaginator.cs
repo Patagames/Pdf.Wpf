@@ -213,7 +213,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 		private BitmapSource CreateImageSource(PdfBitmap bmp)
 		{
 			_mem = new MemoryStream();
-			bmp.Image.Save(_mem, System.Drawing.Imaging.ImageFormat.Png);
+			bmp.GetImage().Save(_mem, System.Drawing.Imaging.ImageFormat.Png);
 
 			BitmapImage bi = new BitmapImage();
 			bi.BeginInit();

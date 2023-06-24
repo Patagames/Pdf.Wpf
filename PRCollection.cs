@@ -161,9 +161,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			{
 				page.RenderEx(bmp, 0, 0, w, h, pageRotate, renderFlags);
 
-				using (var g = System.Drawing.Graphics.FromImage(bitmap.Image))
+				using (var g = System.Drawing.Graphics.FromImage(bitmap.GetImage()))
 				{
-					g.DrawImage(bmp.Image, pageRect.X, pageRect.Y, pageRect.Width, pageRect.Height);
+					g.DrawImage(bmp.GetImage(), pageRect.X, pageRect.Y, pageRect.Width, pageRect.Height);
 				}
 			}
 		}
