@@ -12,7 +12,7 @@ using System.Windows;
 
 //---------------------------- WPF Viewer -------------------------------------------------
 [assembly: AssemblyInformationalVersion("4.85.2704")]  //Should be equal to the same property of Patagames.Pdf assembly
-[assembly: AssemblyVersion("4.23.20." +
+[assembly: AssemblyVersion("4.24.20." +
 #if DOTNET20
 "20"
 #elif DOTNET30
