@@ -204,7 +204,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					b2.Dispose();
 
 				var dc = visual.RenderOpen();
-				dc.DrawImage(imgsrc, new Rect(0, 0, imgsrc.PixelWidth / (dpiX / 96.0), imgsrc.Height / (dpiY / 90.0)));
+				dc.DrawImage(imgsrc, new Rect(0, 0, imgsrc.PixelWidth / (dpiX / 96.0), imgsrc.Height / (dpiY / 96.0)));
 				dc.Close();
 				imgsrc = null;
 			}
