@@ -11,8 +11,8 @@ using System.Windows;
 //      Revision -.Net framework
 
 //---------------------------- WPF Viewer -------------------------------------------------
-[assembly: AssemblyInformationalVersion("4.87.2704")]  //Should be equal to the same property of Patagames.Pdf assembly
-[assembly: AssemblyVersion("4.24.20." +
+[assembly: AssemblyInformationalVersion("4.88.2704")]  //Should be equal to the same property of Patagames.Pdf assembly
+[assembly: AssemblyVersion("4.26.20." +
 #if DOTNET20
 "20"
 #elif DOTNET30
@@ -96,7 +96,7 @@ using System.Windows;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Patagames Software")]
 [assembly: AssemblyProduct("Patagames Pdf.Net SDK")]
-[assembly: AssemblyCopyright("Copyright ©  2023")]
+[assembly: AssemblyCopyright("Copyright ©  2024")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
