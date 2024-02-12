@@ -11,7 +11,7 @@ using System.Windows;
 //      Revision -.Net framework
 
 //---------------------------- WPF Viewer -------------------------------------------------
-[assembly: AssemblyInformationalVersion("4.88.2704")]  //Should be equal to the same property of Patagames.Pdf assembly
+[assembly: AssemblyInformationalVersion("4.89.2704")]  //Should be equal to the same property of Patagames.Pdf assembly
 [assembly: AssemblyVersion("4.26.20." +
 #if DOTNET20
 "20"
