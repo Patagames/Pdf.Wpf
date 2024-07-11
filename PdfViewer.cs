@@ -2540,7 +2540,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                 CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight,
                 tf, 14, Brushes.Black
-#if DOTNET462 || DOTNET47 || DOTNET471 || DOTNET472 || DOTNET48 || DOTNET50 || DOTNET60 || DOTNET70
+#if !DOTNET30 && !DOTNET35 && !DOTNET40 && !DOTNET45 && !DOTNET451 && !DOTNET452 && !DOTNET46 && !DOTNET461 
                 , Helpers.PixelSize
 #endif
                 );

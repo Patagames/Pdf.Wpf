@@ -11,8 +11,8 @@ using System.Windows;
 //      Revision -.Net framework
 
 //---------------------------- WPF Viewer -------------------------------------------------
-[assembly: AssemblyInformationalVersion("4.90.2704")]  //Should be equal to the same property of Patagames.Pdf assembly
-[assembly: AssemblyVersion("4.26.20." +
+[assembly: AssemblyInformationalVersion("4.91.2704")]  //Should be equal to the same property of Patagames.Pdf assembly
+[assembly: AssemblyVersion("4.27.20." +
 #if DOTNET20
 "20"
 #elif DOTNET30
@@ -41,12 +41,16 @@ using System.Windows;
 "472"
 #elif DOTNET48
 "48"
+#elif DOTNET481
+"481"
 #elif DOTNET50
 "50"
 #elif DOTNET60
 "60"
 #elif DOTNET70
 "70"
+#elif DOTNET80
+"80"
 #else
 "0"
 #endif
@@ -83,12 +87,16 @@ using System.Windows;
 [assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls (.net 4.7.2)")]
 #elif DOTNET48
 [assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls (.net 4.8)")]
+#elif DOTNET481
+[assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls (.net 4.8.1)")]
 #elif DOTNET50
 [assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls (.net 5.0)")]
 #elif DOTNET60
 [assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls (.net 6.0)")]
 #elif DOTNET70
 [assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls (.net 7.0)")]
+#elif DOTNET80
+[assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls (.net 8.0)")]
 #else
 [assembly: AssemblyTitle("Patagames Pdf.Net SDK - WPF controls")]
 #endif
@@ -99,6 +107,10 @@ using System.Windows;
 [assembly: AssemblyCopyright("Copyright ©  2024")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
+#if DOTNET50 || DOTNET60 || DOTNET70 || DOTNET80
+[assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("windows")]
+#endif
+
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 
