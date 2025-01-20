@@ -57,6 +57,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                     case ViewModes.SinglePage:
                         return Document.Pages.CurrentIndex;
                     case ViewModes.TilesLine:
+                    case ViewModes.TilesLineRTL:
                         return Document.Pages.CurrentIndex % TilesCount == 0 ? Document.Pages.CurrentIndex : Document.Pages.CurrentIndex - Document.Pages.CurrentIndex % TilesCount;
                     default:
                         return 0;
@@ -74,6 +75,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                     case ViewModes.SinglePage:
                         return Document.Pages.CurrentIndex;
                     case ViewModes.TilesLine:
+                    case ViewModes.TilesLineRTL:
                         return Math.Min(_startPage + TilesCount - 1, _renderRects != null ? _renderRects.Length - 1 : -1);
                     default:
                         return _renderRects != null ? _renderRects.Length - 1 : -1;
@@ -105,6 +107,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
         private enum SmoothSelection { None, ByCharacter, ByLine }
         private SmoothSelection _smoothSelection;
+        private bool _enableRTL = false;
         #endregion
 
         #region Events
@@ -624,7 +627,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                             viewer._renderRects = null;
                             viewer._loadedByViewer = false;
                             viewer.ReleaseFillForms(viewer._externalDocCapture);
-                            //_document = value;
+							//_document = value;
                             viewer.UpdateDocLayout();
                             if (newValue != null)
                             {
@@ -668,10 +671,10 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                         return newValue;
                     }));
 
-		/// <summary>
-		/// DependencyProperty as the backing store for <see cref="PageBackColor"/>
-		/// </summary>
-		public static readonly DependencyProperty PageBackColorProperty =
+        /// <summary>
+        /// DependencyProperty as the backing store for <see cref="PageBackColor"/>
+        /// </summary>
+        public static readonly DependencyProperty PageBackColorProperty =
 			DependencyProperty.Register("PageBackColor", typeof(Color), typeof(PdfViewer),
 				new FrameworkPropertyMetadata(Color.FromArgb(255, 255, 255, 255),
 					FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.Journal,
@@ -791,7 +794,8 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					(o, e) =>
 					{
 						var viewer = (o as PdfViewer);
-						viewer.UpdateDocLayout();
+                        viewer._enableRTL = ((ViewModes)e.NewValue == ViewModes.TilesLineRTL || (ViewModes)e.NewValue == ViewModes.TilesVerticalRTL);
+                        viewer.UpdateDocLayout();
 						viewer.OnViewModeChanged(EventArgs.Empty);
 					}));
 
@@ -1304,7 +1308,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 			if (index < 0 || index > Document.Pages.Count - 1)
 				return;
 
-			if (ViewMode == ViewModes.SinglePage || ViewMode == ViewModes.TilesLine)
+			if (ViewMode == ViewModes.SinglePage || ViewMode == ViewModes.TilesLine || ViewMode == ViewModes.TilesLineRTL)
 			{
 				if (index != CurrentIndex)
 				{
@@ -2697,9 +2701,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                 default: Mouse.OverrideCursor = null; break;
             }
         }
-		#endregion
+        #endregion
 
-		#region Private methods
+        #region Private methods
         private bool CanDisposePage(int i)
         {
             if (_highlightedText.ContainsKey(i))
@@ -2989,47 +2993,51 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 		private void CalcPageSeparator(Rect actualRect, int pageIndex, ref List<Point> separator)
 		{
-			if (!ShowPageSeparator || pageIndex == _endPage || ViewMode == ViewModes.SinglePage)
+			if (!ShowPageSeparator || ViewMode == ViewModes.SinglePage)
 				return;
 			switch (ViewMode)
 			{
 				case ViewModes.Vertical:
-					separator.Add(new Point(actualRect.X, actualRect.Bottom + PageMargin.Bottom));
-					separator.Add(new Point(actualRect.Right, actualRect.Bottom + PageMargin.Bottom));
+					if (pageIndex == 0) break;
+					separator.Add(new Point(actualRect.X, actualRect.Top - PageMargin.Top));
+					separator.Add(new Point(actualRect.Right, actualRect.Top - PageMargin.Top));
+					break;
+                case ViewModes.Horizontal:
+                    if (pageIndex == 0) break;
+                    separator.Add(new Point(actualRect.Left - PageMargin.Left, actualRect.Top));
+					separator.Add(new Point(actualRect.Left - PageMargin.Left, actualRect.Bottom));
 					break;
                 case ViewModes.TilesLine:
-                case ViewModes.Horizontal:
-					separator.Add(new Point(actualRect.Right + PageMargin.Right, actualRect.Top));
-					separator.Add(new Point(actualRect.Right + PageMargin.Right, actualRect.Bottom));
-					break;
-				case ViewModes.TilesVertical:
-					if ((pageIndex + 1) % TilesCount != 0)
+                case ViewModes.TilesLineRTL:
+                case ViewModes.TilesVertical:
+                case ViewModes.TilesVerticalRTL:
+                    if (pageIndex % TilesCount != 0)
 					{
-						//vertical
-						separator.Add(new Point(actualRect.Right + PageMargin.Right, actualRect.Top));
-						separator.Add(new Point(actualRect.Right + PageMargin.Right, actualRect.Bottom));
-					}
-					if (pageIndex <= _endPage - TilesCount)
+                        //vertical
+                        separator.Add(new Point(_enableRTL ? (actualRect.Right + PageMargin.Right) : (actualRect.Left - PageMargin.Left), actualRect.Top));
+                        separator.Add(new Point(_enableRTL ? (actualRect.Right + PageMargin.Right) : (actualRect.Left - PageMargin.Left), actualRect.Bottom));
+                    }
+                    if (ViewMode != ViewModes.TilesLine && ViewMode != ViewModes.TilesLineRTL && pageIndex >= TilesCount)
 					{
 						//horizontal
-						separator.Add(new Point(actualRect.X, actualRect.Bottom + PageMargin.Bottom));
-						separator.Add(new Point(actualRect.Right, actualRect.Bottom + PageMargin.Bottom));
+						separator.Add(new Point(actualRect.X, actualRect.Top - PageMargin.Top));
+						separator.Add(new Point(actualRect.Right, actualRect.Top - PageMargin.Top));
 					}
-					break;
+                    break;
 				case ViewModes.TilesHorizontal:
-					if (pageIndex <= _endPage - TilesCount)
-					{
-						//vertical
-						separator.Add(new Point(actualRect.Right + PageMargin.Right, actualRect.Top));
-						separator.Add(new Point(actualRect.Right + PageMargin.Right, actualRect.Bottom));
-					}
-					if ((pageIndex + 1) % TilesCount != 0)
-					{
-						//horizontal
-						separator.Add(new Point(actualRect.X, actualRect.Bottom + PageMargin.Bottom));
-						separator.Add(new Point(actualRect.Right, actualRect.Bottom + PageMargin.Bottom));
-					}
-					break;
+                    if (pageIndex % TilesCount != 0)
+                    {
+                        //horizontal
+                        separator.Add(new Point(actualRect.X, actualRect.Top - PageMargin.Top));
+                        separator.Add(new Point(actualRect.Right, actualRect.Top - PageMargin.Top));
+                    }
+                    if (pageIndex >= TilesCount)
+                    {
+                        //vertical
+                        separator.Add(new Point(actualRect.Left - PageMargin.Left, actualRect.Top));
+                        separator.Add(new Point(actualRect.Left - PageMargin.Left, actualRect.Bottom));
+                    }
+                    break;
 			}
 		}
 
@@ -3130,7 +3138,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
             switch (ViewMode)
             {
                 case ViewModes.TilesLine:
+                case ViewModes.TilesLineRTL:
                 case ViewModes.TilesVertical:
+                case ViewModes.TilesVerticalRTL:
                     ret =  CalcAppropriateSize(w, h, clientSize.Width / TilesCount - Helpers.ThicknessHorizontal(Padding), clientSize.Height - Helpers.ThicknessVertical(Padding));
                     break;
                 case ViewModes.TilesHorizontal:
@@ -3156,14 +3166,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf
             return ret;
         }
 
-        internal double _actualSizeFactor()
-        {
-			double dpi = Helpers.Dpi;
-			return dpi/ 72.0 / (dpi / 96) / Helpers.PixelSize;
-			//1. dpi / 72 - to convert PDF points to pixels
-			//2. dpi / 96 - scale factor
-			//3. PixelSize - to convert pixels to units.
-		}
+internal double _actualSizeFactor()
+{
+	double dpi = Helpers.Dpi;
+	return dpi/ 72.0 / (dpi / 96) / Helpers.PixelSize;
+	//1. dpi / 72 - to convert PDF points to pixels
+	//2. dpi / 96 - scale factor
+	//3. PixelSize - to convert pixels to units.
+}
 
 		private Size CalcAppropriateSize(double w, double h, double fitWidth, double fitHeight)
 		{
@@ -3223,6 +3233,19 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                 var offset = loc.X - _renderRects[from].X;
                 for (int i = from; i < to; i++)
                     _renderRects[i].X += offset;
+            }
+        }
+
+        private void ApplyRTL(int i, int j)
+        {
+            if (!_enableRTL)
+                return;
+            j -= 1;
+            for (int k = 0; k <= (j - i) / 2; k++)
+            {
+                var tmp = _renderRects[i + k];
+                _renderRects[i + k] = _renderRects[j - k];
+                _renderRects[j - k] = tmp;
             }
         }
 
@@ -3458,6 +3481,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                         lowestPage = j;
                 }
                 AlignHorizontal(i, j);
+                ApplyRTL(i, j);
 
                 height = _renderRects[lowestPage].Bottom;
                 if (width < _renderRects[j - 1].Right)
@@ -3574,6 +3598,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                 if (i % TilesCount == TilesCount - 1 || i == _renderRects.Length - 1)
                 {
                     AlignHorizontal(i - i % TilesCount, i + 1);
+                    ApplyRTL(i - i % TilesCount, i + 1);
                     ret = new Size(_renderRects[i].Right + Padding.Right, _renderRects[IdxWithLowestBottom(i - i % TilesCount, i)].Bottom + Padding.Bottom);
                 }
             }
@@ -3600,9 +3625,9 @@ namespace Patagames.Pdf.Net.Controls.Wpf
                     Document.Pages.CurrentIndex = index;
 					OnCurrentPageChanged(EventArgs.Empty);
 
-                    if (ViewMode == ViewModes.SinglePage || ViewMode == ViewModes.TilesLine)
+                    if (ViewMode == ViewModes.SinglePage || ViewMode == ViewModes.TilesLine || ViewMode == ViewModes.TilesLineRTL)
                         UpdateScrollBars(new Size(_renderRects[_endPage].Right + Padding.Right, _renderRects[IdxWithLowestBottom(_startPage, _endPage)].Bottom + Padding.Bottom));
-                    if ((ViewMode == ViewModes.SinglePage || ViewMode == ViewModes.TilesLine) && _startPage != prevStart)
+                    if ((ViewMode == ViewModes.SinglePage || ViewMode == ViewModes.TilesLine || ViewMode == ViewModes.TilesLineRTL) && _startPage != prevStart)
                         for (int i = prevStart; i <= prevEnd; i++)
                             if (PageAutoDispose && CanDisposePage(i))
                                 Document.Pages[i].Dispose();
@@ -3677,12 +3702,14 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 					size = CalcHorizontal();
 					break;
 				case ViewModes.TilesVertical:
-					size = CalcTilesVertical();
+                case ViewModes.TilesVerticalRTL:
+                    size = CalcTilesVertical();
 					break;
                 case ViewModes.TilesHorizontal:
                     size = CalcTilesHorizontal();
                     break;
                 case ViewModes.TilesLine:
+                case ViewModes.TilesLineRTL:
                     size = CalcTilesLine();
                     break;
                 default:
@@ -3957,7 +3984,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf
 
 		void Pages_CurrentPageChanged(object sender, EventArgs e)
 		{
-            if (ViewMode == ViewModes.SinglePage || ViewMode == ViewModes.TilesLine)
+            if (ViewMode == ViewModes.SinglePage || ViewMode == ViewModes.TilesLine || ViewMode == ViewModes.TilesLineRTL)
             {
                 _prPages.ReleaseCanvas();
                 UpdateScrollBars(new Size(_renderRects[_endPage].Right + Padding.Right, _renderRects[IdxWithLowestBottom(_startPage, _endPage)].Bottom + Padding.Bottom));
