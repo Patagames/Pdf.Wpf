@@ -48,7 +48,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
 
 			var tsb = this.Items[1] as Button;
 			if (tsb != null)
-				tsb.IsEnabled = PdfViewer.SelectedText.Length > 0;
+				tsb.IsEnabled = PdfViewer.IsTextSelected;
 
 
 		}
