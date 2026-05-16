@@ -328,7 +328,7 @@ namespace Patagames.Pdf.Net.Controls.Wpf.ToolBars
                 return;
             }
 
-            IntPtr text = Pdfium.FPDFText_LoadPage(page);
+            IntPtr text = Pdfium.FPDFText_LoadPageEx(page, PdfText.AdvanceTextExtraction);
             if (text == IntPtr.Zero)
             {
                 _searchTimer.Stop();
